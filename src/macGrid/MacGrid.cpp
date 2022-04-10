@@ -1,6 +1,8 @@
 #include "MacGrid.h"
 
 #include <iostream>
+#include <QSettings>
+#include <QFile>
 
 using namespace std;
 using namespace Eigen;
@@ -138,4 +140,73 @@ Vector3i MacGrid::indexToCoordinate(unsigned int cellIndex) const
   const int y = temp % m_cellsPerRow;
   const int x = (temp - y * m_cellsPerRow);
   return Vector3i(x, y, z);
+}
+
+void MacGrid::simulate() {
+    QSettings settings("src/config.ini", QSettings::IniFormat);
+    int numTimesteps = settings.value(QString("numTimesteps")).toInt();
+    for (int i = 0; i < numTimesteps; i++) {
+        applyExternalForces();
+        checkForCollisions();
+        classifyAsFluidSolidAir();
+        classifyPseudoPressureGradient();
+        updateParticleVelocities();
+        //CFL condition?
+        updateParticlePositions();
+    }
+}
+
+void MacGrid::applyExternalForces() {
+    #pragma omp parallel for
+    for (int i = 0; i < m_particles.size(); i++) {
+        QSettings settings("src/config.ini", QSettings::IniFormat);
+        Eigen::Vector3f gravity = Eigen::Vector3d(0,settings.value(QString("gravity")).toDouble(),0);
+        //TO DO, add force of gravity to each particle
+    }
+}
+
+void MacGrid::checkForCollisions() {
+    #pragma omp parallel for
+    //TO DO
+    //iterate through all cells
+        //for each direction, check if neighboring cell is solid
+        //if neighboring solid cell, set velocity in that direction to 0
+}
+
+void MacGrid::classifyAsFluidSolidAir() {
+    #pragma omp parallel for
+    //TO DO
+    //iterate through all cells
+        //if non solid
+            //if one or more particles in cell set to fluid
+            //else set to air
+}
+
+void MacGrid::classifyPseudoPressureGradient() {
+    //TO DO
+    //define solver, recommended preconditioned conjugate gradient method with a preconditioner of the modified incomplete cholesky factorization type
+    //sparse matrix A = divergence of velocity field using equation 7
+    //sparse matrix b =
+    // for every neighboring cell
+        //if solid neighboring cell, solid coefficient 0, increase cental coefficient by 1
+        //else, use equation 8 to get coefficient
+    //solve Ax=b to get scalar vield
+    //subtract scalar field from velocities to get divergence free velocity and enforce conservation fo mass
+}
+
+void MacGrid::updateParticleVelocities() {
+    //TO DO
+    for (int i = 0; i < m_particles.size(); i++) {
+         //calculate FLIP particle velocity
+         //calculate PIC particle velocity
+        QSettings settings("src/config.ini", QSettings::IniFormat);
+        double interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toDouble();
+        //update particle with interpolared PIC/FLIP velocities
+    }
+}
+
+void MacGrid::updateParticlePositions() {
+    for (int i = 0; i < m_particles.size(); i++) {
+        //TO DO, use Runge Kutta 2 ODE solver
+    }
 }

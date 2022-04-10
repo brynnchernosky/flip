@@ -34,9 +34,18 @@ class MacGrid
     Eigen::Vector3f m_otherCornerPosition;
 
     std::vector<Cell *> m_cells;
+    std::vector<Particle *> m_particles;
 
     unsigned int    coordinateToIndex(Eigen::Vector3i cellCoordinates) const;
     Eigen::Vector3i indexToCoordinate(unsigned int    cellIndex)       const;
+    void simulate();
+    void applyExternalForces();
+    void checkForCollisions();
+    void classifyAsFluidSolidAir();
+    void classifyPseudoPressureGradient();
+    void updateParticleVelocities();
+    void updateParticlePositions();
+
 };
 
 #endif // MACGRID_H
