@@ -23,12 +23,17 @@ public:
 
 
 private:
+    Eigen::Vector3i GridIDtoXYZ(int idx);
+    int XYZtoGridID(Eigen::Vector3i xyz);
     float m_searchRadius;
-    float m_gridSpace;
+    float m_gridSpacing;
     int m_numOfGrids;
     int m_numOfParticles;
+    int m_gridLength;
+    int m_gridWidth;
+    int m_gridHeight;
     std::vector<Eigen::Vector3f> _particles;
-    std::vector<int> *_grids;
+    std::vector<int> *_grids;//vector at _grids[i] stores the particles that falls within grid_i
     std::vector<float> _gridCorners;
     std::vector<Eigen::Vector3f> _vertices;
     std::vector<Eigen::Vector3f> _faces;
