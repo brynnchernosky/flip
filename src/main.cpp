@@ -1,19 +1,66 @@
-#include <QApplication>
-#include "mainwindow.h"
+#include <QCoreApplication>
+#include <QCommandLineParser>
+
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
 
+using namespace std;
+
+// This is a command line application with one argument
 int main(int argc, char *argv[])
 {
-  QApplication a(argc, argv);
-  MainWindow w;
-  srand (static_cast <unsigned> (time(0)));
-  // We cannot use w.showFullscreen() here because on Linux that creates the
-  // window behind all other windows, so we have to set it to fullscreen after
-  // it has been shown.
-  w.show();
-  //w.setWindowState(w.windowState() | Qt::WindowFullScreen); // Comment out this line to have a windowed 800x600 game on startup.
+  QCoreApplication a(argc, argv);
+  QCommandLineParser parser;
 
-  return a.exec();
+  // Define formal parameters
+  parser.addHelpOption();
+  parser.addPositionalArgument("method", "simulate or particle-to-mesh");
+  parser.addPositionalArgument("args1",  "argument1 for the method");
+  parser.addPositionalArgument("args2",  "argument2 for the method");
+  parser.process(a);
+  
+  // Obtain actual parameters
+  const QStringList args = parser.positionalArguments();
+  if (args.size() < 1) {
+    cerr << "Usage: ./flip <method> <args...>" << endl;
+    a.exit(1);
+    return 1;
+  }
+
+  // Parse parameters
+  const string method = args[0].toStdString();
+  // const string args1  = args[1].toStdString();
+  // const string args2  = args[2].toStdString();
+
+  // Start timer
+  const auto startTime = chrono::high_resolution_clock::now();
+
+  // Switch on method
+  if (method == "simulate")
+  {
+    // Flip flip;
+    // flip.init();
+    // flip.simulate();
+    cout << "Error: simulate not yet implemented!" << endl;
+  }
+  else if (method == "particle-to-mesh")
+  {
+    // ParticleToMesh particleToMesh;
+    // particleToMesh.init();
+    // particleToMesh.convert();
+    cout << "Error: particle-to-mesh not yet implemented!" << endl;
+  }
+  else
+  {
+    cout << "Error: unknown method!" << endl;
+  }
+
+  // End timer
+  const auto endTime = chrono::high_resolution_clock::now();
+  const auto duration = chrono::duration_cast<chrono::milliseconds>(endTime - startTime).count();
+  cout << "Execution took " << duration << " milliseconds." <<endl;
+
+  a.exit();
 }
 
