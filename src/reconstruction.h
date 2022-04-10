@@ -2,6 +2,7 @@
 #define RECONSTRUCTION_H
 
 #include <iostream>
+#include <Eigen/StdVector>
 
 using namespace std;
 class Reconstruction
@@ -17,6 +18,22 @@ public:
      * @param output_filepath - output folder of triangles meshes in .obj file format
      */
     void surface_reconstruction(string input_filepath, string output_filepath);
+    void loadParticles(string input_filepath); //load .csv file, construct grids
+    float calculateSignedDistance (int grid);
+
+
+private:
+    float m_searchRadius;
+    float m_gridSpace;
+    int m_numOfGrids;
+    int m_numOfParticles;
+    std::vector<Eigen::Vector3f> _particles;
+    std::vector<int> *_grids;
+    std::vector<float> _gridCorners;
+    std::vector<Eigen::Vector3f> _vertices;
+    std::vector<Eigen::Vector3f> _faces;
+
+
 
 };
 
