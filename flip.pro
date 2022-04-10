@@ -10,7 +10,8 @@ SOURCES += \
     src/main.cpp \
     src/macGrid/MacGrid.cpp \
     src/graphics/shape.cpp \
-    src/graphics/MeshLoader.cpp
+    src/graphics/MeshLoader.cpp \
+    src/reconstruction.cpp
 
 HEADERS += \
     src/flip.h \
@@ -18,7 +19,8 @@ HEADERS += \
     src/macGrid/Face.h \
     src/macGrid/MacGrid.h \
     src/graphics/shape.h \
-    src/graphics/MeshLoader.h
+    src/graphics/MeshLoader.h \
+    src/reconstruction.h
 
 HOME_DIR = $$(HOME)
 
