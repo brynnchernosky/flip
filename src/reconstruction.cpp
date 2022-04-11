@@ -15,10 +15,11 @@ Reconstruction::Reconstruction()
 }
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath){
-    //TODO:
+
     loadParticles(input_filepath);
     //calculate the signed distance for each grid corner
     for(int i = 0; i<m_numOfGrids; i++){
+        //TODO: implement signed distance
         calculateSignedDistance(i);
     }
 
