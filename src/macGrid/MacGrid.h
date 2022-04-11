@@ -4,8 +4,9 @@
 #include <Eigen/Dense>
 #include <vector>
 
+#include "HashMap.h"
 #include "Cell.h"
-#include "Face.h"
+#include "Particle.h"
 
 class MacGrid
 {
@@ -16,29 +17,36 @@ class MacGrid
 
     void validate();
 
-    const Eigen::Vector3i getCellCoordinates(const Eigen::Vector3f position) const;
+    void simulate();
+
+    const Eigen::Vector3i positionToIndices(const Eigen::Vector3f position) const;
 
     const Eigen::Vector3f getInterpolatedVelocity(const Eigen::Vector3f position) const;
 
-    Cell *getCell(const Eigen::Vector3i cellCoordinates) const;
-    Cell *getCell(const Eigen::Vector3f position)        const;
+    void updateGrid();
 
   private:
-  
-    float           m_cellWidth;
+
+    float m_kCFL = 2;
+    float m_cellWidth;
+
     Eigen::Vector3i m_cellCount;
     Eigen::Vector3f m_cornerPosition;
+    Eigen::Vector3f m_otherCornerPosition;
     
     int m_cellsPerLayer;
     int m_cellsPerRow;
-    Eigen::Vector3f m_otherCornerPosition;
 
-    std::vector<Cell *> m_cells;
+    std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
+
     std::vector<Particle *> m_particles;
 
-    unsigned int    coordinateToIndex(Eigen::Vector3i cellCoordinates) const;
-    Eigen::Vector3i indexToCoordinate(unsigned int    cellIndex)       const;
-    void simulate();
+    float           m_simulationTime;
+    Eigen::Vector3f m_gravityVector;
+    float           m_interpolationCoefficient;
+
+    // ================== Helpers
+
     void applyExternalForces();
     void checkForCollisions();
     void classifyAsFluidSolidAir();
@@ -46,6 +54,7 @@ class MacGrid
     void updateParticleVelocities();
     void updateParticlePositions();
 
+    bool withinBounds(Eigen::Vector3i cellIndices);
 };
 
 #endif // MACGRID_H

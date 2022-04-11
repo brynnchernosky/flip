@@ -4,12 +4,13 @@
 #include <QSettings>
 #include <QFile>
 
+
 using namespace std;
 using namespace Eigen;
 
 // ================== Sanity Checks
 
-#define SANITY_CHECKS true
+#define SANITY_CHECKS false
 
 #if SANITY_CHECKS
 
@@ -36,12 +37,13 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 MacGrid::MacGrid(float cellWidth,
                  Vector3i cellCount,
                  Vector3f cornerPosition) :
+  m_kCFL(2),
   m_cellWidth(cellWidth),
   m_cellCount(cellCount),
-  m_cornerPosition(cornerPosition),
+  m_cornerPosition     (cornerPosition),
+  m_otherCornerPosition(cornerPosition + cellCount.cast<float>() * cellWidth),
   m_cellsPerLayer(cellCount[0] * cellCount[1]),
-  m_cellsPerRow(cellCount[0]),
-  m_otherCornerPosition(cornerPosition + cellCount.cast<float>() * cellWidth)
+  m_cellsPerRow  (cellCount[0])
 {
 #if SANITY_CHECKS
   assert(0 < cellWidth);
@@ -49,6 +51,12 @@ MacGrid::MacGrid(float cellWidth,
   assert(0 < cellCount[1]);
   assert(0 < cellCount[2]);
 #endif
+
+  // Reading from ini file
+  QSettings settings("src/config.ini", QSettings::IniFormat);
+  m_simulationTime = settings.value(QString("simulationTime")).toInt();
+  m_gravityVector  = Vector3f(0, settings.value(QString("gravity")).toFloat(), 0);
+  m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
 }
 
 // ================== Destructor
@@ -58,15 +66,34 @@ MacGrid::~MacGrid() {}
 
 // ================== Validator
 
-// Todo
 void MacGrid::validate()
 {
-  for (Cell * const cell : m_cells) {
-    assert(cell != nullptr);
+  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+    assert(kv->second != nullptr);
   }
 }
 
-const Vector3i MacGrid::getCellCoordinates(const Vector3f position) const
+// ================== Simulator
+
+void MacGrid::simulate()
+{
+  float time = 0.0f;
+  while (time < m_simulationTime) {
+
+    applyExternalForces();
+    updateGrid();
+    classifyAsFluidSolidAir();
+    classifyPseudoPressureGradient();
+    updateParticleVelocities();
+    updateParticlePositions();
+
+    // Increment time
+    const float stepTime = 1.0f;
+    time += stepTime;
+  }
+}
+
+const Vector3i MacGrid::positionToIndices(const Vector3f position) const
 {
 #if SANITY_CHECKS
   assertCellWithinBounds(position, m_cornerPosition, m_otherCornerPosition);
@@ -88,7 +115,7 @@ const Vector3f MacGrid::getInterpolatedVelocity(const Vector3f position) const
 
   Vector3f velocity;
 
-  // const Vector3i cellCoordinates = getCellCoordinates(position);
+  // const Vector3i cellCoordinates = positionToIndices(position);
   // Cell * const cell = getCell(cellCoordinates);
 
   // velocity[0] = getInterpolatedValue();
@@ -98,115 +125,156 @@ const Vector3f MacGrid::getInterpolatedVelocity(const Vector3f position) const
   return velocity;
 }
 
-Cell *MacGrid::getCell(const Vector3i cellCoordinates) const
+// ================== Update Grid
+
+const vector<Vector3i> NEIGHBOR_OFFSETS = {
+  { 1,  0,  0},
+  {-1,  0,  0},
+  { 0,  1,  0},
+  { 0, -1,  0},
+  { 0,  0,  1},
+  { 0,  0, -1},
+};
+
+// Given particle positions, update the dynamic grid
+void MacGrid::updateGrid()
 {
-#if SANITY_CHECKS
-  assertCellWithinBounds(cellCoordinates, m_cellCount);
-#endif
+  // Set layer field of all cells to −1
+  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+    kv->second->layer = -1;
+  }
 
-  return m_cells[coordinateToIndex(cellCoordinates)];
-}
+  // Update cells that currently have fluid in them
+  for (Particle * particle : m_particles) {
 
-Cell *MacGrid::getCell(const Vector3f position) const
-{
-#if SANITY_CHECKS
-  assertCellWithinBounds(position, m_cornerPosition, m_otherCornerPosition);
-#endif
+    const Vector3i cellIndices = positionToIndices(particle->position);
+    auto kv = m_cells.find(cellIndices);
 
-  return getCell(getCellCoordinates(position));
+    // If cell does not exist
+    if (kv == m_cells.end()) {
+      
+      // If cell is within simulation bounds
+      if (withinBounds(cellIndices)) {
+
+        // Create the cell and put it in the hash table
+        Cell * newCell = new Cell{};
+        m_cells.insert({cellIndices, newCell});
+
+        // Set its material and layer
+        newCell->material = Material::Fluid;
+        newCell->layer = 0;
+      }
+
+      continue;
+    }
+
+    // If cell does exist, and is not solid
+    Cell * cell = kv->second;
+    if (cell->material != Material::Solid) {
+      cell->material = Material::Fluid;
+      cell->layer = 0;
+    }
+  }
+
+  // Create a buffer zone around the fluid
+  for (int bufferLayer = 1; bufferLayer < max(2, (int) ceil(m_kCFL)); ++bufferLayer) {
+
+    // For each cell
+    for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+      const Vector3i cellIndices = kv->first;
+      Cell * cell = kv->second;
+
+      // Skip if it's not a fluid/air cell with layer = bufferLayer - 1
+      if (cell->material == Material::Solid || cell->layer != bufferLayer - 1) continue;
+
+      // For each of its six neighbor cells
+      for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
+        const Vector3i neighborIndices = cellIndices + neighborOffset;
+        auto kv = m_cells.find(cellIndices);
+
+        // If the neighbor cell does not exist
+        if (kv == m_cells.end()) {
+
+          // Create the neighbor cell and put it in the hash table
+          Cell * newNeighbor = new Cell{};
+          m_cells.insert({neighborIndices, newNeighbor});
+          
+          // Set its material and layer
+          newNeighbor->material = withinBounds(cellIndices) ? Material::Air : Material::Solid;
+          newNeighbor->layer = bufferLayer;
+
+          continue;
+        }
+
+        // If the neighbor cell does exist, is not solid, and has layer = -1
+        Cell * neighbor = kv->second;
+        if (neighbor->material != Material::Solid && neighbor->layer == -1) {
+          neighbor->material = Material::Air;
+          neighbor->layer = bufferLayer;
+        }
+      }
+    }
+  }
 }
 
 // ================== Helpers
 
-unsigned int MacGrid::coordinateToIndex(const Vector3i cellCoordinates) const
+void MacGrid::applyExternalForces()
 {
-#if SANITY_CHECKS
-  assertCellWithinBounds(cellCoordinates, m_cellCount);
-#endif
-
-  return cellCoordinates[2] * m_cellsPerLayer +
-         cellCoordinates[1] * m_cellsPerRow +
-         cellCoordinates[0];
+#pragma omp parallel for
+  for (int i = 0; i < m_particles.size(); i++) {
+    Particle * particle = m_particles[i];
+    // TO DO, add force of gravity to each particle
+  }
 }
 
-Vector3i MacGrid::indexToCoordinate(unsigned int cellIndex) const
+void MacGrid::checkForCollisions()
 {
-#if SANITY_CHECKS
-  assert(0 <= cellIndex && cellIndex < m_cells.size());
-#endif
-
-  const int z = cellIndex % m_cellsPerLayer;
-  const int temp = cellIndex - z * m_cellsPerLayer;
-  const int y = temp % m_cellsPerRow;
-  const int x = (temp - y * m_cellsPerRow);
-  return Vector3i(x, y, z);
+#pragma omp parallel for
+  //TO DO
+  //iterate through all cells
+  // for each direction, check if neighboring cell is solid
+  // if neighboring solid cell, set velocity in that direction to 0
 }
 
-void MacGrid::simulate() {
-    QSettings settings("src/config.ini", QSettings::IniFormat);
-    int numTimesteps = settings.value(QString("numTimesteps")).toInt();
-    for (int i = 0; i < numTimesteps; i++) {
-        applyExternalForces();
-        checkForCollisions();
-        classifyAsFluidSolidAir();
-        classifyPseudoPressureGradient();
-        updateParticleVelocities();
-        //CFL condition?
-        updateParticlePositions();
-    }
+void MacGrid::classifyPseudoPressureGradient()
+{
+  //TO DO
+  //define solver, recommended preconditioned conjugate gradient method with a preconditioner of the modified incomplete cholesky factorization type
+  //sparse matrix A = divergence of velocity field using equation 7
+  //sparse matrix b =
+  // for every neighboring cell
+      //if solid neighboring cell, solid coefficient 0, increase cental coefficient by 1
+      //else, use equation 8 to get coefficient
+  //solve Ax=b to get scalar vield
+  //subtract scalar field from velocities to get divergence free velocity and enforce conservation fo mass
 }
 
-void MacGrid::applyExternalForces() {
-    #pragma omp parallel for
-    for (int i = 0; i < m_particles.size(); i++) {
-        QSettings settings("src/config.ini", QSettings::IniFormat);
-        Eigen::Vector3f gravity = Eigen::Vector3d(0,settings.value(QString("gravity")).toDouble(),0);
-        //TO DO, add force of gravity to each particle
-    }
+void MacGrid::updateParticleVelocities()
+{
+#pragma omp parallel for
+  for (int i = 0; i < m_particles.size(); i++) {
+    Particle * particle = m_particles[i];
+
+    // Calculate FLIP particle velocity
+    
+    // Calculate PIC particle velocity
+    // Update particle with interpolared PIC/FLIP velocities
+  }
 }
 
-void MacGrid::checkForCollisions() {
-    #pragma omp parallel for
-    //TO DO
-    //iterate through all cells
-        //for each direction, check if neighboring cell is solid
-        //if neighboring solid cell, set velocity in that direction to 0
+void MacGrid::updateParticlePositions()
+{
+#pragma omp parallel for
+  for (int i = 0; i < m_particles.size(); i++) {
+    Particle * particle = m_particles[i];
+
+    // TO DO, use Runge Kutta 2 ODE solver
+  }
 }
 
-void MacGrid::classifyAsFluidSolidAir() {
-    #pragma omp parallel for
-    //TO DO
-    //iterate through all cells
-        //if non solid
-            //if one or more particles in cell set to fluid
-            //else set to air
-}
-
-void MacGrid::classifyPseudoPressureGradient() {
-    //TO DO
-    //define solver, recommended preconditioned conjugate gradient method with a preconditioner of the modified incomplete cholesky factorization type
-    //sparse matrix A = divergence of velocity field using equation 7
-    //sparse matrix b =
-    // for every neighboring cell
-        //if solid neighboring cell, solid coefficient 0, increase cental coefficient by 1
-        //else, use equation 8 to get coefficient
-    //solve Ax=b to get scalar vield
-    //subtract scalar field from velocities to get divergence free velocity and enforce conservation fo mass
-}
-
-void MacGrid::updateParticleVelocities() {
-    //TO DO
-    for (int i = 0; i < m_particles.size(); i++) {
-         //calculate FLIP particle velocity
-         //calculate PIC particle velocity
-        QSettings settings("src/config.ini", QSettings::IniFormat);
-        double interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toDouble();
-        //update particle with interpolared PIC/FLIP velocities
-    }
-}
-
-void MacGrid::updateParticlePositions() {
-    for (int i = 0; i < m_particles.size(); i++) {
-        //TO DO, use Runge Kutta 2 ODE solver
-    }
+bool MacGrid::withinBounds(Eigen::Vector3i cellIndices)
+{
+  // Todo
+  return true;
 }

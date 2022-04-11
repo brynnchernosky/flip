@@ -15,8 +15,8 @@ SOURCES += \
 HEADERS += \
     src/flip.h \
     src/macGrid/Cell.h \
-    src/macGrid/Face.h \
     src/macGrid/HashMap.h \
+    src/macGrid/Particle.h \
     src/macGrid/MacGrid.h \
     src/graphics/shape.h \
     src/graphics/MeshLoader.h

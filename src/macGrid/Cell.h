@@ -2,19 +2,28 @@
 #define CELL_H
 
 #include <Eigen/Dense>
+#include <vector>
 
-struct HalfFace;
+enum Material
+{
+  Solid,
+  Fluid,
+  Air
+};
+
+struct Particle;
 
 struct Cell
 {
-  HalfFace *top;
-  HalfFace *bottom;
-  HalfFace *north;
-  HalfFace *south;
-  HalfFace *east;
-  HalfFace *west;
+  float ux;
+  float uy;
+  float uz;
+  float p;
 
-  float pseudoPressure;
+  Material material = Material::Air;
+  int layer = -1;
+
+  std::vector<Particle *> particles;
 };
 
 #endif // CELL_H
