@@ -5,15 +5,14 @@
 
 Reconstruction::Reconstruction():
     m_gridSpacing(1),
-    m_gridWidth(4),
     m_gridHeight(4),
+    m_gridWidth(4),
     m_gridLength(4)
 {
     //TODO:
     //need to set: m_numOfParticles, m_gridLength, m_gridWidth, m_gridHeight, m_gridSpace, m_searchRadius
 
     m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
-
 }
 
 Reconstruction::~Reconstruction() {}
@@ -22,11 +21,13 @@ void Reconstruction::surface_reconstruction(string input_filepath, string output
 
     loadParticles(input_filepath);
      //TODO: calculate signed distances for all grid corners
-    for (int x = 0; x < m_gridWidth; x++) {
-        for (int y = 0; y < m_gridHeight; y++) {
-            for (int z = 0; z < m_gridHeight; z++) {
+    std::vector<double> signed_distances;
+    signed_distances.reserve(m_numOfGrids);
+    for (int x = 0; x < m_gridHeight; x++) {
+        for (int y = 0; y < m_gridWidth; y++) {
+            for (int z = 0; z < m_gridLength; z++) {
                 //TODO: implement signed distance
-                calculateSignedDistance(Eigen::Vector3i(x, y, z));
+                signed_distances.push_back(calculateSignedDistance(Eigen::Vector3i(x, y, z)));
             }
         }
     }
@@ -106,8 +107,50 @@ double Reconstruction::kernel(double s) {
     return std::max(0.0, std::pow(1 - s, 3));
 }
 
-double Reconstruction::calculateSignedDistance (Eigen::Vector3i grid) {
-    //row - height, column - length, depth - width
+double Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner) {
+    //row - width, column - length, depth - height
+    int rowStart = max(0, grid_corner[1] - 3);
+    int rowEnd = min(m_gridWidth, grid_corner[1] + 3);
+    int colStart = max(0, grid_corner[2] - 3);
+    int colEnd = min(m_gridLength, grid_corner[2] + 3);
+    int depthStart = max(0, grid_corner[0] - 3);
+    int depthEnd = min(m_gridHeight, grid_corner[0] + 3);
 
+    Eigen::Vector3f x_g(grid_corner);
+    std::unordered_map<int, double> neighbor_particle_weights; //maps particle_idx to w_i
+    double R = 3 * m_gridSpacing;
 
+    //Iterate through each cell in a 9x9 block around the given grid corner
+    double total = 0.0;
+    for(int i = depthStart; i < depthEnd; i++) {
+        for(int j = rowStart; j < rowEnd; j++) {
+            for(int k = colStart; k < colEnd; k++) {
+                int idx = XYZtoGridID(Eigen::Vector3i(i, j, k));
+                std::unordered_set<int> in_cell_particles = m_cellToParticle[idx];
+                for (int particle_idx : in_cell_particles) {
+                    double distance = (_particles[particle_idx] - x_g).norm();
+                    if (distance <= R) {
+                        //Map each particle that is within distance R to corner to a weight, normalize after
+                        double w_i = kernel(distance/R);
+                        neighbor_particle_weights[particle_idx] = w_i;
+                        total += w_i;
+                    }
+                }
+            }
+        }
+    }
+
+    double particle_radius = 0.5 * m_gridSpacing;
+    //Use those weights to create an average point x_bar, and average radius r_bar
+    Eigen::Vector3f x_avg = Eigen::Vector3f::Zero();
+    double r_avg = 0.0;
+    for (auto i : neighbor_particle_weights) {
+        int particle_idx = i.first;
+        double w_i = i.second / total;
+        x_avg += w_i * _particles[particle_idx];
+        r_avg += w_i * particle_radius;
+    }
+
+    //Use to calculate signed distance
+    return (x_g - x_avg).norm() - r_avg;
 }

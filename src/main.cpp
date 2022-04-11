@@ -52,12 +52,18 @@ int main(int argc, char *argv[])
     // particleToMesh.init();
     // particleToMesh.convert();
 
+    if (args.size() != 3) {
+      cerr << "Usage: ./flip particle-to-mesh input_filepath output_filepath" << endl;
+      a.exit(1);
+      return 1;
+    }
+
     const string input_filepath = args[1].toStdString();
     const string output_filepath = args[2].toStdString();
     Reconstruction converter;
     converter.surface_reconstruction(input_filepath, output_filepath);
 
-    cout << "Error: particle-to-mesh not yet implemented!" << endl;
+//    cout << "Error: particle-to-mesh not yet implemented!" << endl;
   }
   else
   {

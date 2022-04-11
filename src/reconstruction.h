@@ -35,7 +35,7 @@ private:
      * @param grid - index of the grid corner
      * @return the signed distance for that gridpoint
      */
-    double calculateSignedDistance (Eigen::Vector3i grid);
+    double calculateSignedDistance (Eigen::Vector3i grid_corner);
 
     Eigen::Vector3i GridIDtoXYZ(int idx);
 
@@ -60,8 +60,8 @@ private:
     int m_numOfGrids;
     int m_numOfParticles;
 
-    int m_gridWidth; //corresponds with x
-    int m_gridHeight; //corresponds with y
+    int m_gridHeight; //corresponds with x
+    int m_gridWidth; //corresponds with y
     int m_gridLength; // corresponds with z
 
     std::vector<Eigen::Vector3f> _particles;
