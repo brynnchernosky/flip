@@ -21,6 +21,7 @@ void Reconstruction::surface_reconstruction(string input_filepath, string output
     for(int i = 0; i<m_numOfGrids; i++){
         //TODO: implement signed distance
         calculateSignedDistance(i);
+        //TODO: calculate signed distances for all grid corners
     }
 
 }
@@ -67,10 +68,10 @@ void Reconstruction::loadParticles(string input_filepath){
         _particles.push_back(particle_pos);
     }
     //grid index: row-first, then column, then stack
-    _grids = new std::vector<int>[m_numOfGrids];
+    m_particles2grids = new std::vector<int>[m_numOfGrids];
     for(int i = 0; i < m_numOfParticles; i++){
         int index = XYZtoGridID(_particles[i]);
-        _grids[index].push_back(i);
+        m_particles2grids[index].push_back(i);
     }
 
 }
