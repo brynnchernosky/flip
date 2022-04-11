@@ -128,10 +128,11 @@ double Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner) {
                 int idx = XYZtoGridID(Eigen::Vector3i(i, j, k));
                 std::unordered_set<int> in_cell_particles = m_cellToParticle[idx];
                 for (int particle_idx : in_cell_particles) {
-                    double distance = (_particles[particle_idx] - x_g).norm();
+                    Eigen::Vector3f vec = _particles[particle_idx] - x_g;
+                    double distance = (vec).norm();
                     if (distance <= R) {
                         //Map each particle that is within distance R to corner to a weight, normalize after
-                        double w_i = kernel(distance/R);
+                        double w_i = kernel(vec.dot(vec) / std::pow(R, 2));
                         neighbor_particle_weights[particle_idx] = w_i;
                         total += w_i;
                     }
