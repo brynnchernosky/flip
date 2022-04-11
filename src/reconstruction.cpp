@@ -69,13 +69,8 @@ void Reconstruction::loadParticles(string input_filepath){
     //grid index: row-first, then column, then stack
     _grids = new std::vector<int>[m_numOfGrids];
     for(int i = 0; i < m_numOfParticles; i++){
-        float x_f = _particles[i][0]/m_gridSpacing;
-        float y_f = _particles[i][1]/m_gridSpacing;
-        float z_f = _particles[i][2]/m_gridSpacing;
-        int x = floor(x_f);
-        int y = floor(y_f);
-        int z = floor(z_f);
-        _grids[m_gridLength*m_gridWidth*x + m_gridLength*y +z].push_back(i);
+        int index = XYZtoGridID(_particles[i]);
+        _grids[index].push_back(i);
     }
 
 }
