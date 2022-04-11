@@ -3,30 +3,36 @@
 #include <fstream>
 #include <string>
 
-using namespace std;
-
-Reconstruction::Reconstruction()
+Reconstruction::Reconstruction():
+    m_gridSpacing(1),
+    m_gridWidth(4),
+    m_gridHeight(4),
+    m_gridLength(4)
 {
     //TODO:
     //need to set: m_numOfParticles, m_gridLength, m_gridWidth, m_gridHeight, m_gridSpace, m_searchRadius
 
-    m_numOfGrids = m_gridLength*m_gridLength*m_gridHeight;
+    m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
 
 }
+
+Reconstruction::~Reconstruction() {}
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath){
 
     loadParticles(input_filepath);
-    //calculate the signed distance for each grid corner
-    for(int i = 0; i<m_numOfGrids; i++){
-        //TODO: implement signed distance
-        calculateSignedDistance(i);
-        //TODO: calculate signed distances for all grid corners
+     //TODO: calculate signed distances for all grid corners
+    for (int x = 0; x < m_gridWidth; x++) {
+        for (int y = 0; y < m_gridHeight; y++) {
+            for (int z = 0; z < m_gridHeight; z++) {
+                //TODO: implement signed distance
+                calculateSignedDistance(Eigen::Vector3i(x, y, z));
+            }
+        }
     }
 
 }
 
-//helper fuction
 Eigen::Vector3i Reconstruction::GridIDtoXYZ(int idx){
     int z = idx/(m_gridLength*m_gridWidth);
     int y = (idx/(m_gridLength*m_gridWidth))/m_gridLength;
@@ -35,8 +41,18 @@ Eigen::Vector3i Reconstruction::GridIDtoXYZ(int idx){
     return Eigen::Vector3i(x,y,z);
 }
 
-//helper function
 int Reconstruction::XYZtoGridID(Eigen::Vector3i xyz){
+    float x_f = xyz[0]/m_gridSpacing;
+    float y_f = xyz[1]/m_gridSpacing;
+    float z_f = xyz[2]/m_gridSpacing;
+    int x = floor(x_f);
+    int y = floor(y_f);
+    int z = floor(z_f);
+
+    return m_gridLength*m_gridWidth*x + m_gridLength*y +z;
+}
+
+int Reconstruction::XYZtoGridID(Eigen::Vector3f xyz){
     float x_f = xyz[0]/m_gridSpacing;
     float y_f = xyz[1]/m_gridSpacing;
     float z_f = xyz[2]/m_gridSpacing;
@@ -52,6 +68,10 @@ void Reconstruction::loadParticles(string input_filepath){
     // open the input file and load into _particles
     fstream fin;
     fin.open(input_filepath, ios::in);
+    if(!fin.good()) {
+        std::cout << input_filepath << " could not be opened" << std::endl;
+        return;
+    }
 
     // Read the Data from the file as String Vector vector<string> row;
     string line, word, temp;
@@ -67,16 +87,27 @@ void Reconstruction::loadParticles(string input_filepath){
         }
         _particles.push_back(particle_pos);
     }
+
     //grid index: row-first, then column, then stack
-    m_particles2grids = new std::vector<int>[m_numOfGrids];
     for(int i = 0; i < m_numOfParticles; i++){
         int index = XYZtoGridID(_particles[i]);
-        m_particles2grids[index].push_back(i);
+        if (m_cellToParticle.find(index) != m_cellToParticle.end()) {
+            m_cellToParticle[index].insert(i);
+        } else {
+            std::unordered_set<int> setOfParticles = std::unordered_set<int>();
+            setOfParticles.insert(i);
+            m_cellToParticle[index] = setOfParticles;
+        }
     }
 
 }
 
-float Reconstruction::calculateSignedDistance (int grid){
-    //
+double Reconstruction::kernel(double s) {
+    return std::max(0.0, std::pow(1 - s, 3));
+}
+
+double Reconstruction::calculateSignedDistance (Eigen::Vector3i grid) {
+    //row - height, column - length, depth - width
+
 
 }

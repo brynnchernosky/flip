@@ -5,6 +5,8 @@
 #include <ctime>
 #include <iostream>
 
+#include "reconstruction.h"
+
 using namespace std;
 
 // This is a command line application with one argument
@@ -49,6 +51,12 @@ int main(int argc, char *argv[])
     // ParticleToMesh particleToMesh;
     // particleToMesh.init();
     // particleToMesh.convert();
+
+    const string input_filepath = args[1].toStdString();
+    const string output_filepath = args[2].toStdString();
+    Reconstruction converter;
+    converter.surface_reconstruction(input_filepath, output_filepath);
+
     cout << "Error: particle-to-mesh not yet implemented!" << endl;
   }
   else
