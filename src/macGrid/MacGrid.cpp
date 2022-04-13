@@ -3,6 +3,8 @@
 #include <iostream>
 #include <QSettings>
 #include <QFile>
+#include "../graphics/MeshLoader.h"
+
 
 
 using namespace std;
@@ -57,6 +59,12 @@ MacGrid::MacGrid(float cellWidth,
   m_simulationTime = settings.value(QString("simulationTime")).toInt();
   m_gravityVector  = Vector3f(0, settings.value(QString("gravity")).toFloat(), 0);
   m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
+  m_fluidMesh = settings.value(QString("fluidMesh")).toString().toStdString();
+  m_solidMesh = settings.value(QString("solidMesh")).toString().toStdString();
+
+  convertFromMeshToParticles(Fluid, m_fluidMesh);
+  convertFromMeshToParticles(Solid, m_solidMesh);
+  simulate();
 }
 
 // ================== Destructor
@@ -224,17 +232,33 @@ void MacGrid::applyExternalForces()
 #pragma omp parallel for
   for (int i = 0; i < m_particles.size(); i++) {
     Particle * particle = m_particles[i];
-    // TO DO, add force of gravity to each particle
+    particle->velocity += m_gravityVector*m_timestep;
   }
 }
 
 void MacGrid::checkForCollisions()
 {
 #pragma omp parallel for
-  //TO DO
-  //iterate through all cells
-  // for each direction, check if neighboring cell is solid
-  // if neighboring solid cell, set velocity in that direction to 0
+  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+      if (m_cells[i->first + Eigen::Vector3i(1,0,0)]->material == Solid) {
+          i->second->ux = std::min(0.f,i->second->ux);
+      }
+      if (m_cells[i->first + Eigen::Vector3i(-1,0,0)]->material == Solid) {
+          i->second->ux = std::max(0.f,i->second->ux);
+      }
+      if (m_cells[i->first + Eigen::Vector3i(0,1,0)]->material == Solid) {
+          i->second->uy = std::min(0.f,i->second->uy);
+      }
+      if (m_cells[i->first + Eigen::Vector3i(0,-1,0)]->material == Solid) {
+          i->second->uy = std::max(0.f,i->second->uy);
+      }
+      if (m_cells[i->first + Eigen::Vector3i(0,0,1)]->material == Solid) {
+          i->second->uz = std::min(0.f,i->second->uz);
+      }
+      if (m_cells[i->first + Eigen::Vector3i(0,0,-1)]->material == Solid) {
+          i->second->uz = std::max(0.f,i->second->uz);
+      }
+  }
 }
 
 void MacGrid::classifyPseudoPressureGradient()
@@ -271,6 +295,25 @@ void MacGrid::updateParticlePositions()
 
     // TO DO, use Runge Kutta 2 ODE solver
   }
+}
+
+void convertFromMeshToParticles(Material mat, std::string mesh) {
+    std::vector<Eigen::Vector3f> vertices;
+    std::vector<Eigen::Vector3f> normals;
+    std::vector<Eigen::Vector3i> faces;
+    std::vector<Cell> cells;
+    if (MeshLoader::loadTriMesh(mesh,vertices,normals,faces)) {
+        //make each vertex a particle
+        //set a number of randomly selected points on each face to particles
+    }
+
+    //zack has helper functions for this
+    for (int i = 0; i < cells.size(); i++) {
+        std::vector<Cell> path;
+        //step along x,y,z directions in turn, add cell to path
+        //terminate path if exit mesh
+        //if find voxel with same cell type, set cells on path to correct voxel type, add particle(s) to each cell
+    }
 }
 
 bool MacGrid::withinBounds(Eigen::Vector3i cellIndices)
