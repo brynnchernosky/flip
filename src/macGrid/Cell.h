@@ -2,14 +2,9 @@
 #define CELL_H
 
 #include <Eigen/Dense>
-#include <vector>
+#include <set>
 
-enum Material
-{
-  Solid,
-  Fluid,
-  Air
-};
+#include "src/macGrid/Material.h"
 
 struct Particle;
 
@@ -23,7 +18,7 @@ struct Cell
   Material material = Material::Air;
   int layer = -1;
 
-  std::vector<Particle *> particles;
+  std::set<Particle *> particles;
 };
 
 #endif // CELL_H

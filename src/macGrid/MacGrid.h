@@ -7,6 +7,7 @@
 #include "HashMap.h"
 #include "Cell.h"
 #include "Particle.h"
+#include "Material.h"
 
 class MacGrid
 {
@@ -16,50 +17,48 @@ class MacGrid
     ~MacGrid();
 
     void validate();
-
+    void init();
     void simulate();
-
-    const Eigen::Vector3i positionToIndices(const Eigen::Vector3f position) const;
-
-    const Eigen::Vector3f getInterpolatedVelocity(const Eigen::Vector3f position) const;
-
     void updateGrid();
+
+    // Debugging
+    void addParticle(Eigen::Vector3f position, Eigen::Vector3f velocity);
+    void printGrid() const;
 
   private:
 
-    float m_kCFL = 2;
-    float m_cellWidth;
-
-    Eigen::Vector3i m_cellCount;
-    Eigen::Vector3f m_cornerPosition;
-    Eigen::Vector3f m_otherCornerPosition;
-    
-    int m_cellsPerLayer;
-    int m_cellsPerRow;
-
+    const float m_cellWidth;
+    const Eigen::Vector3i m_cellCount;
+    const Eigen::Vector3f m_cornerPosition;
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
-
     std::vector<Particle *> m_particles;
 
-    float m_simulationTime; //total time to run simulation
-    float m_timestep; //current timestep
-    Eigen::Vector3f m_gravityVector;
-    float m_interpolationCoefficient;
+    // Initialization Helpers
 
-    std::string m_fluidMesh;
-    std::string m_solidMesh;
+    std::string m_fluidMeshFilepath;
+    std::string m_solidMeshFilepath;
+    std::vector<Particle *> m_surfaceParticles; // this is used only temporarily for loading in
+                                                // meshes; perhaps we could use the velocity field
+                                                // to indicate the inward direction of the mesh?
+    void meshToSurfaceParticles(const std::string meshFilepath);
+    void updateGridFromSurfaceParticles(Material material, bool fillInnerSpace);
 
-    // ================== Helpers
+    // Simulation Helpers
 
-    void applyExternalForces();
-    void checkForCollisions();
-    void classifyAsFluidSolidAir();
+    float m_kCFL = 2;                           // IDK lol
+    float m_simulationTime;                     // total time for simulation
+    Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
+    float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
+    void applyExternalForces(float deltaTime);
+    void enforceDirichletBC();
     void classifyPseudoPressureGradient();
     void updateParticleVelocities();
     void updateParticlePositions();
-    void convertFromMeshToParticles(Material mat, std::string mesh);
 
-    bool withinBounds(Eigen::Vector3i cellIndices);
+    // Miscellaneous Helpers
+
+    const Eigen::Vector3i positionToIndices(const Eigen::Vector3f &position) const;
+    bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };
 
 #endif // MACGRID_H

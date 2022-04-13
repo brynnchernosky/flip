@@ -5,11 +5,25 @@
 #include <ctime>
 #include <iostream>
 
+#include "macGrid/MacGrid.h"
+
 using namespace std;
+using namespace Eigen;
 
 // This is a command line application with one argument
 int main(int argc, char *argv[])
 {
+  // ================== To delete
+
+  MacGrid grid(1, {3,3,3}, {0,0,0});
+  grid.addParticle({1.5,1.5,1.5}, Vector3f::Zero());
+  grid.addParticle({1.5,2.5,1.5}, Vector3f::Zero());
+  grid.addParticle({2.5,1.5,1.5}, Vector3f::Zero());
+  grid.updateGrid();
+  grid.printGrid();
+
+  // ================== End to delete
+
   QCoreApplication a(argc, argv);
   QCommandLineParser parser;
 

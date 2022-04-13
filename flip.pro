@@ -14,10 +14,12 @@ SOURCES += \
 
 HEADERS += \
     src/flip.h \
+    src/Debug.h \
     src/macGrid/Cell.h \
     src/macGrid/HashMap.h \
     src/macGrid/Particle.h \
     src/macGrid/MacGrid.h \
+    src/macGrid/Material.h \
     src/graphics/shape.h \
     src/graphics/MeshLoader.h
 
