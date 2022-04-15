@@ -240,10 +240,19 @@ void MacGrid::enforceDirichletBC()
 #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
 
-    // Skip non-fluid cells
-    if (kv->second->material != Material::Fluid) continue;
+    Cell * cell = kv->second;
 
-    // This map access is guaranteed to be safe due to the buffer layer around the fluid
+    // Skip air cells
+    if (cell->material == Material::Air) continue;
+
+    // Set solid cells' velocities to zero
+    if (cell->material == Material::Solid) {
+      cell->ux = 0;
+      cell->uy = 0;
+      cell->uz = 0;
+    }
+
+    // Set fluid-solid boundary velocities to zero (this is safe due to the buffer layer around the fluid)
     if (m_cells[kv->first + Vector3i(-1, 0, 0)]->material == Solid) kv->second->ux = 0;
     if (m_cells[kv->first + Vector3i(0, -1, 0)]->material == Solid) kv->second->uy = 0;
     if (m_cells[kv->first + Vector3i(0, 0, -1)]->material == Solid) kv->second->uz = 0;
