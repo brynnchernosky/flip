@@ -79,6 +79,7 @@ void Reconstruction::loadParticles(string input_filepath){
     getline(fin, line);
     //for now, assume every line of .csv file is just particle positions separated by coma
     for(int i = 0; i < m_numOfParticles; i++){
+        getline(fin, line);
         stringstream s(line);
         Eigen::Vector3f particle_pos = Eigen::Vector3f(0,0,0);
         int j = 0;
