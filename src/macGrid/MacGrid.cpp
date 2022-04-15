@@ -109,37 +109,8 @@ void MacGrid::updateGrid()
     kv->second->layer = -1;
   }
 
-  // Update cells that currently have fluid in them
-  for (Particle * particle : m_particles) {
-
-    const Vector3i cellIndices = positionToIndices(particle->position);
-    auto kv = m_cells.find(cellIndices);
-
-    // If cell does not exist
-    if (kv == m_cells.end()) {
-      
-      // If cell is within simulation bounds
-      if (withinBounds(cellIndices)) {
-
-        // Create the cell and put it in the hash table
-        Cell * newCell = new Cell{};
-        m_cells.insert({cellIndices, newCell});
-
-        // Set its material and layer
-        newCell->material = Material::Fluid;
-        newCell->layer = 0;
-      }
-
-      continue;
-    }
-
-    // If cell does exist, and is not solid
-    Cell * cell = kv->second;
-    if (cell->material != Material::Solid) {
-      cell->material = Material::Fluid;
-      cell->layer = 0;
-    }
-  }
+  // Update grid cells that currently have fluid in them
+  assignParticleCellMaterials(Material::Fluid, m_particles);
 
   // Create a buffer zone around the fluid
   for (int bufferLayer = 1; bufferLayer < max(2, (int) ceil(m_kCFL)); ++bufferLayer) {
@@ -245,7 +216,12 @@ void MacGrid::meshToSurfaceParticles(string meshFilepath)
 
 void MacGrid::updateGridFromSurfaceParticles(Material material, bool fillInnerSpace)
 {
-  // Todo
+  // Update grid cells
+  assignParticleCellMaterials(material, m_surfaceParticles);
+
+  // Fill inner space
+  if (!fillInnerSpace) return;
+  assignInnerCellMaterials(material);
 }
 
 // ================== Simulation Helpers
@@ -338,6 +314,48 @@ void MacGrid::updateParticlePositions()
 }
 
 // ================== Miscellaneous Helpers
+
+// Assigns the materials of cells which themselves contain particles,
+void MacGrid::assignParticleCellMaterials(Material material, vector<Particle *> &particles)
+{
+  // Iterate through particles
+  for (Particle * const particle : particles) {
+
+    const Vector3i cellIndices = positionToIndices(particle->position);
+    auto kv = m_cells.find(cellIndices);
+
+    // If cell does not exist
+    if (kv == m_cells.end()) {
+      
+      // If cell is within simulation bounds
+      if (withinBounds(cellIndices)) {
+
+        // Create the cell and put it in the hash table
+        Cell * newCell = new Cell{};
+        m_cells.insert({cellIndices, newCell});
+
+        // Set its material and layer
+        newCell->material = material;
+        newCell->layer = 0;
+      }
+
+      continue;
+    }
+
+    // If cell does exist, and is not solid
+    Cell * cell = kv->second;
+    if (cell->material != Material::Solid) {
+      cell->material = material;
+      cell->layer = 0;
+    }
+  }
+}
+
+// Assigns the materials of cells contained within the surface particles, by using a fill method
+void MacGrid::assignInnerCellMaterials(Material material)
+{
+  // Todo
+}
 
 // Converts a given position to the indices of the cell which would contain it
 const Vector3i MacGrid::positionToIndices(const Vector3f &position) const
