@@ -5,6 +5,7 @@
 #include "src/macGrid/MacGrid.h"
 #include "src/graphics/MeshLoader.h"
 #include "src/Debug.h"
+#include <random>
 
 using namespace std;
 using namespace Eigen;
@@ -217,6 +218,22 @@ void MacGrid::meshToSurfaceParticles(string meshFilepath)
     }
 
     // Spawn particles on the surface of the mesh
+    for (unsigned int i = 0; i < vertices.size(); ++i) {
+        //create particle at vertices[i]
+    }
+    for (unsigned int i = 0; i < faces.size(); ++i) {
+        int numParticlesPerFace = 5;
+        for (unsigned int j = 0; j < numParticlesPerFace; j++) {
+            float alpha = (static_cast<float>(random())/RAND_MAX);
+            float beta = (static_cast<float>(random())/RAND_MAX);
+            float gamma = (static_cast<float>(random())/RAND_MAX);
+            float normalizationFactor = alpha+beta+gamma;
+            alpha /= normalizationFactor;
+            beta /= normalizationFactor;
+            gamma /= normalizationFactor;
+            //create particle at alpha*vertices[faces[i][0]] + beta*vertices[faces[i][1]] + gamma*vertices[faces[i][2]]
+        }
+    }
 
     for (unsigned int i = 0; i < m_cells.size(); ++i) {
         vector<Cell> path;
@@ -259,14 +276,41 @@ void MacGrid::enforceDirichletBC()
 
 void MacGrid::classifyPseudoPressureGradient()
 {
-  // define solver, recommended preconditioned conjugate gradient method with a preconditioner of the modified incomplete cholesky factorization type
-  // sparse matrix A = divergence of velocity field using equation 7
-  // sparse matrix b =
-  // for every neighboring cell
+  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper,Eigen::IncompleteCholesky<float>> m_solver;
+
+  Eigen::SparseMatrix<float> A;
+  //A = for every neighboring cell
       //if solid neighboring cell, solid coefficient 0, increase cental coefficient by 1
       //else, use equation 8 to get coefficient
-  // solve Ax=b to get scalar vield
-  // subtract scalar field from velocities to get divergence free velocity and enforce conservation fo mass
+  A.resize(m_cells.size(),m_cells.size());
+  //b = divergence of velocity field using equation 7
+  Eigen::Matrix3f b;
+  b.resize(m_cells.size(),1);
+
+  std::unordered_map<int,int> cellIndexToMatrixIndex;
+  int matrixIndexCounter = 0;
+  int cellIndexCounter = 0;
+
+  #pragma omp parallel for
+  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+      if (i->second->material == Fluid) {
+          //fill A, fill b
+
+          Eigen::Vector3f divergence = i->second->ux;
+          b(matrixIndexCounter,0)= divergence[0];
+          b(matrixIndexCounter,1)= divergence[1];
+          b(matrixIndexCounter,2)= divergence[2];
+          cellIndexToMatrixIndex[cellIndexCounter] = matrixIndexCounter;
+          matrixIndexCounter++;
+      }
+      cellIndexCounter++;
+  }
+
+  Eigen::Matrix3f scalarField;
+  scalarField.resize(m_cells.size(),1);
+  m_solver.compute(A);
+  scalarField = m_solver.solve(b);
+  // subtract scalar field from velocities to get divergence free velocity
 }
 
 void MacGrid::updateParticleVelocities()

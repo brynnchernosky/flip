@@ -2,6 +2,9 @@
 #define MACGRID_H
 
 #include <Eigen/Dense>
+#include <Eigen/IterativeLinearSolvers>
+#include <Eigen/SparseCore>
+#include <Eigen/SparseCholesky>
 #include <vector>
 
 #include "HashMap.h"
@@ -32,6 +35,7 @@ class MacGrid
     const Eigen::Vector3f m_cornerPosition;
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
     std::vector<Particle *> m_particles;
+
 
     // Initialization Helpers
 
