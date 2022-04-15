@@ -268,57 +268,60 @@ void MacGrid::classifyPseudoPressureGradient()
   A.resize(m_cells.size(),m_cells.size());
   std::vector<T> coefficients;
 
-  Eigen::Matrix3f b; //divergence of velocity field, equation 7
+  Eigen::Matrix3f b; //divergence of velocity field
   b.resize(m_cells.size(),1);
 
-  std::unordered_map<int,int> cellIndexToMatrixIndex;
   int matrixIndexCounter = 0;
-  int cellIndexCounter = 0;
+  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+      if (i->second->material == Fluid) {
+          i->second->index = matrixIndexCounter;
+          matrixIndexCounter++;
+      }
+  }
 
   #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
       if (i->second->material == Fluid) {
-          float centerCoefficient = 0;
+          float centerCoefficient = -6;
           if (m_cells[i->first + Vector3i(1, 0, 0)]->material == Solid) {
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(1, 0, 0)]->material == Fluid) {
-              //TO DO add coefficient, use equation 8
+              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(1, 0, 0)]->index,1));
           }
           if (m_cells[i->first + Vector3i(-1, 0, 0)]->material == Solid) {
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(-1, 0, 0)]->material == Fluid) {
-              //TO DO add coefficient
+              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(-1, 0, 0)]->index,1));
+
           }
           if (m_cells[i->first + Vector3i(0, 1, 0)]->material == Solid) {
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(0, 1, 0)]->material == Fluid) {
-              //TO DO add coefficient
+              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, 1, 0)]->index,1));
           }
           if (m_cells[i->first + Vector3i(0, -1, 0)]->material == Solid) {
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(0, -1, 0)]->material == Fluid) {
-              //TO DO add coefficient
+              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, -1, 0)]->index,1));
           }
           if (m_cells[i->first + Vector3i(0, 0, 1)]->material == Solid) {
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(0, 0, 1)]->material == Fluid) {
-              //TO DO add coefficient
+              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, 0, 1)]->index,1));
           }
           if (m_cells[i->first + Vector3i(0, 0, -1)]->material == Solid) {
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(0, 0, -1)]->material == Fluid) {
-              //TO DO add coefficient
+              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, 0, -1)]->index,1));
           }
-          coefficients.push_back(T(matrixIndexCounter,matrixIndexCounter,centerCoefficient));
+          coefficients.push_back(T(i->second->index,i->second->index,centerCoefficient));
           //assume ux,uy,uz in negative direction
+          //TO DO second paper mentions doing something different for air neighboring cells
           float divergence = ((i->second->ux)-(m_cells[i->first+Eigen::Vector3i(1,0,0)]->ux))/(m_cellWidth*m_cellWidth)
                   + ((i->second->uy)-(m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy))/(m_cellWidth*m_cellWidth)
                   + ((i->second->uz)-(m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz))/(m_cellWidth*m_cellWidth);
           b(matrixIndexCounter,0)= divergence;
-          cellIndexToMatrixIndex[cellIndexCounter] = matrixIndexCounter;
-          matrixIndexCounter++;
       }
-      cellIndexCounter++;
   }
   A.setFromTriplets(coefficients.begin(), coefficients.end());
 
@@ -326,7 +329,20 @@ void MacGrid::classifyPseudoPressureGradient()
   scalarField.resize(m_cells.size(),1);
   m_solver.compute(A);
   scalarField = m_solver.solve(b);
-  //TO DO subtract scalar field from velocities to get divergence free velocity
+
+  #pragma omp parallel for
+  matrixIndexCounter = 0;
+  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+      if (i->second->material == Fluid) {
+          float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+          float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+          float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+          i->second->ux -= xGradient;
+          i->second->uy -= yGradient;
+          i->second->uz -= zGradient;
+      }
+      //TO DO second paper mentions doing something different for air neighboring cells
+  }
 }
 
 void MacGrid::updateParticleVelocities()
