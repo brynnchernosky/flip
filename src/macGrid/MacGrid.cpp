@@ -347,9 +347,57 @@ void MacGrid::updateParticleVelocities()
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
+    Vector3f particlePos = particle->position;
+    Vector3i gridIdx = positionToIndices(particle->position);
+    Vector3i idx;
+    idx[0] = floor(particlePos[0]);//l
+    idx[1] = floor(particlePos[1]);//m
+    idx[2] = floor(particlePos[2]);//n
+    Vector3f weights = Vector3f(particlePos[0]+1-particlePos[0], particlePos[1]+1-particlePos[1], particlePos[2]+1-particlePos[2]);
 
     // Calculate FLIP particle velocity
-    
+//    Vector3i pariticlePosition = positionToIndices(particle->position);
+    for(int l = 0; l < 2; l++){
+        for(int m = 0; m < 2; m++){
+            for(int n = 0; n < 2; n++){
+
+            }
+        }
+    }
+//    //#1
+//    float wx = l+1-particlePos[0];
+//    float wy = m+1-particlePos[1];
+//    float wz = n+1-particlePos[2];
+//    float vx = wx*m_cells[gridIdx]->ux;
+//    float vy = wy*m_cells[gridIdx]->uy;
+//    float vz = wz*m_cells[gridIdx]->uz;
+//    //#2
+//    Vector3i offset = Vector3i(1,0,0);
+//    wx = particlePos[0]-l;
+//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
+//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
+//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
+//    //#3
+//    offset = Vector3i(0,1,0);
+//    wx = l+1-particlePos[0];
+//    wy = particlePos[1] - m;
+//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
+//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
+//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
+//    //#4
+//    offset = Vector3i(1,1,0);
+//    wx = particlePos[0]-l;
+//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
+//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
+//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
+//    //#5
+//    offset = Vector3i(1,1,0);
+//    wx = particlePos[0]-l;
+//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
+//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
+//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
+
+
     // Calculate PIC particle velocity
 
     // Update particle with interpolated PIC/FLIP velocities
