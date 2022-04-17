@@ -84,7 +84,8 @@ void MacGrid::init()
   // Fluid
   meshToSurfaceParticles(m_fluidMeshFilepath);
   updateGridFromSurfaceParticles(Material::Fluid);
-  fillGridFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+  addParticlesToCells(Material::Fluid);
 }
 
 void MacGrid::simulate()
@@ -219,6 +220,34 @@ void MacGrid::meshToSurfaceParticles(string meshFilepath)
     }
 }
 
+//Function to fill grid cells from internal position in mesh
+void MacGrid::fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition) {
+    Cell * newCell = new Cell{};
+    m_cells.insert({positionToIndices(internalPosition), newCell});
+    newCell->material = material;
+    fillGridCellsRecursive(material, positionToIndices(internalPosition));
+}
+
+//Recursive function to create grid cells
+void MacGrid::fillGridCellsRecursive(Material material, const Eigen::Vector3i &cellPosition) {
+    for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
+        if (m_cells.find(cellPosition+neighborOffset) == m_cells.end()) {
+            Cell * newCell = new Cell{};
+            m_cells.insert({cellPosition, newCell});
+            newCell->material = material;
+            fillGridCellsRecursive(material,cellPosition+neighborOffset);
+        }
+    }
+}
+
+//Adds particles to cells, does not affect cell/particle relationship
+void MacGrid::addParticlesToCells(Material material) {
+#pragma omp parallel for
+    for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+        //TO DO
+    }
+}
+
 void MacGrid::updateGridFromSurfaceParticles(Material material, bool fillInnerSpace)
 {
   // Update grid cells
@@ -287,35 +316,12 @@ void MacGrid::classifyPseudoPressureGradient()
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
       if (i->second->material == Fluid) {
           float centerCoefficient = -6;
-          if (m_cells[i->first + Vector3i(1, 0, 0)]->material == Solid) {
-              centerCoefficient += 1;
-          } else if (m_cells[i->first + Vector3i(1, 0, 0)]->material == Fluid) {
-              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(1, 0, 0)]->index,1));
-          }
-          if (m_cells[i->first + Vector3i(-1, 0, 0)]->material == Solid) {
-              centerCoefficient += 1;
-          } else if (m_cells[i->first + Vector3i(-1, 0, 0)]->material == Fluid) {
-              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(-1, 0, 0)]->index,1));
-          }
-          if (m_cells[i->first + Vector3i(0, 1, 0)]->material == Solid) {
-              centerCoefficient += 1;
-          } else if (m_cells[i->first + Vector3i(0, 1, 0)]->material == Fluid) {
-              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, 1, 0)]->index,1));
-          }
-          if (m_cells[i->first + Vector3i(0, -1, 0)]->material == Solid) {
-              centerCoefficient += 1;
-          } else if (m_cells[i->first + Vector3i(0, -1, 0)]->material == Fluid) {
-              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, -1, 0)]->index,1));
-          }
-          if (m_cells[i->first + Vector3i(0, 0, 1)]->material == Solid) {
-              centerCoefficient += 1;
-          } else if (m_cells[i->first + Vector3i(0, 0, 1)]->material == Fluid) {
-              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, 0, 1)]->index,1));
-          }
-          if (m_cells[i->first + Vector3i(0, 0, -1)]->material == Solid) {
-              centerCoefficient += 1;
-          } else if (m_cells[i->first + Vector3i(0, 0, -1)]->material == Fluid) {
-              coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(0, 0, -1)]->index,1));
+          for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
+              if (m_cells[i->first + neighborOffset]->material == Solid) {
+                  centerCoefficient += 1;
+              } else if (m_cells[i->first + neighborOffset]->material == Fluid) {
+                  coefficients.push_back(T(i->second->index,m_cells[i->first + neighborOffset]->index,1));
+              }
           }
           coefficients.push_back(T(i->second->index,i->second->index,centerCoefficient));
           //assume ux,uy,uz in negative direction

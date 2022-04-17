@@ -46,7 +46,9 @@ class MacGrid
                                                 // to indicate the inward direction of the mesh?
     void meshToSurfaceParticles(const std::string meshFilepath);
     void updateGridFromSurfaceParticles(Material material);
-    void fillGridFromInternalPosition(Material material, const Vector3f &internalPosition);
+    void fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition);
+    void fillGridCellsRecursive(Material material, const Eigen::Vector3i &cellPosition);
+    void addParticlesToCells(Material material);
 
     // Simulation Helpers
 
