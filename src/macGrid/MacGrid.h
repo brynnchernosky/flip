@@ -31,7 +31,8 @@ class MacGrid
   private:
 
     float m_cellWidth;
-    float m_numParticlesPerArea;
+    float m_maxAverageSurfaceParticlesPerCellFaceArea; // surfaceParticles.size() <= this * surfaceArea
+    float m_maxAverageSurfaceParticlesPerArea;
     Eigen::Vector3i m_cellCount;
     Eigen::Vector3f m_cornerPosition;
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;

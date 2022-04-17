@@ -1,11 +1,12 @@
 #include <iostream>
 #include <QSettings>
 #include <QFile>
+#include <random>
 
 #include "src/macGrid/MacGrid.h"
 #include "src/graphics/MeshLoader.h"
 #include "src/Debug.h"
-#include <random>
+
 typedef Eigen::Triplet<float> T;
 
 using namespace std;
@@ -41,7 +42,9 @@ MacGrid::MacGrid()
   QSettings settings("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/src/config.ini", QSettings::IniFormat);
 
   m_cellWidth = settings.value(QString("cellWidth")).toFloat();
-  m_numParticlesPerArea = 1 / m_cellWidth / m_cellWidth;
+  m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
+  m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
+  // cout << "m_maxAverageSurfaceParticlesPerArea = " << m_maxAverageSurfaceParticlesPerArea << endl;
 
   m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
                          settings.value(QString("cellCountY")).toInt(),
@@ -93,14 +96,14 @@ void MacGrid::validate()
 void MacGrid::init()
 {
   // Solid
-  meshToSurfaceParticles(m_solidSurfaceParticles, m_solidMeshFilepath);
-  assignParticleCellMaterials(Material::Solid, m_solidSurfaceParticles);
+  // meshToSurfaceParticles(m_solidSurfaceParticles, m_solidMeshFilepath);
+  // assignParticleCellMaterials(Material::Solid, m_solidSurfaceParticles);
 
   // Fluid
-//  meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
-//  assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
-//  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
-//  addParticlesToCells(Material::Fluid);
+  meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
+  assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
+  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+  // addParticlesToCells(Material::Fluid);
 }
 
 void MacGrid::simulate()
@@ -193,6 +196,7 @@ void MacGrid::printGrid() const
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
     cout << Debug::vectorToString(kv->first) << ": " << Debug::cellToString(kv->second) << endl;
   }
+  cout << "Total cells = " << m_cells.size() << endl;
 }
 
 // ================== Initialization Helpers
@@ -228,25 +232,49 @@ void MacGrid::meshToSurfaceParticles(vector<Particle *> &surfaceParticles, strin
 
   // Spawn particles on the mesh's vertices
   for (const Vector3f &vertexPosition : vertices) {
-    surfaceParticles.push_back(
-      new Particle{nullptr, vertexPosition, Vector3f::Zero()});
+    surfaceParticles.push_back(new Particle{nullptr, vertexPosition, Vector3f::Zero()});
   }
 
+  float area = 0;
+  
   // Spawn particles on the mesh's faces
   for (const Vector3i &face : faces) {
 
     const Vector3f &a = vertices[face[0]];
     const Vector3f ab = vertices[face[1]] - a;
     const Vector3f ac = vertices[face[2]] - a;
+    const float abNorm = ab.norm();
+    const float acNorm = ac.norm();
 
-    const Vector3f crossProduct = ab.cross(ac);
-    const int numParticles = min(1.0f, m_numParticlesPerArea * crossProduct.norm() / 2);
+    const float faceArea = ab.cross(ac).norm() / 2;
+    area += faceArea;
 
-    for (int i = 0; i < numParticles; ++i) {
-      surfaceParticles.push_back(
-        new Particle{nullptr, getRandomPositionOnTriangle(a, ab, ac), crossProduct.normalized()});
+    const float numParticles = faceArea * m_maxAverageSurfaceParticlesPerArea;
+    const float acAbRatio = acNorm / abNorm;
+    const float temp = sqrt(numParticles / acAbRatio);
+    const int abStrata = (int) (temp);
+    const int acStrata = (int) (acAbRatio * temp);
+
+    // Use stratified sampling
+    for (int abStratum = 0; abStratum < abStrata; ++abStratum) {
+      for (int acStratum = 0; acStratum < acStrata; ++acStratum) {
+
+        float abWeight = (abStratum + getRandomFloat()) / abStrata;
+        float acWeight = (acStratum + getRandomFloat()) / acStrata;
+        if (abWeight + acWeight > 1) {
+          abWeight = 1 - abWeight;
+          acWeight = 1 - acWeight;
+        }
+        const Vector3f surfacePosition = a + abWeight * ab + acWeight * ac;
+        
+        surfaceParticles.push_back(new Particle{nullptr, surfacePosition, Vector3f::Zero()});
+      }
     }
   }
+
+  cout << "surface particles (not counting vertices)  = " << surfaceParticles.size() - vertices.size() << endl;
+  cout << "surface area                               = " << area << endl;
+  cout << "surface area (multiples of cell face area) = " << area / m_cellWidth / m_cellWidth << endl;
 }
 
 // Densely fills grid cells with the given material, starting from a given internal position
@@ -503,10 +531,6 @@ void MacGrid::assignParticleCellMaterials(Material material, vector<Particle *> 
 // Converts a given position to the indices of the cell which would contain it
 const Vector3i MacGrid::positionToIndices(const Vector3f &position) const
 {
-#if SANITY_CHECKS
-  assertCellWithinBounds(position, m_cornerPosition, m_otherCornerPosition);
-#endif
-
   const Vector3f regularizedPosition = (position - m_cornerPosition) / m_cellWidth;
 
   return Vector3i(floor(regularizedPosition[0]),
