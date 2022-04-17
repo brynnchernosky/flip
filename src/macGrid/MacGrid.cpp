@@ -292,7 +292,6 @@ void MacGrid::classifyPseudoPressureGradient()
               centerCoefficient += 1;
           } else if (m_cells[i->first + Vector3i(-1, 0, 0)]->material == Fluid) {
               coefficients.push_back(T(i->second->index,m_cells[i->first + Vector3i(-1, 0, 0)]->index,1));
-
           }
           if (m_cells[i->first + Vector3i(0, 1, 0)]->material == Solid) {
               centerCoefficient += 1;
@@ -316,10 +315,10 @@ void MacGrid::classifyPseudoPressureGradient()
           }
           coefficients.push_back(T(i->second->index,i->second->index,centerCoefficient));
           //assume ux,uy,uz in negative direction
-          //TO DO second paper mentions doing something different for air neighboring cells
           float divergence = ((i->second->ux)-(m_cells[i->first+Eigen::Vector3i(1,0,0)]->ux))/(m_cellWidth*m_cellWidth)
                   + ((i->second->uy)-(m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy))/(m_cellWidth*m_cellWidth)
                   + ((i->second->uz)-(m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz))/(m_cellWidth*m_cellWidth);
+          //second paper subtracts number of air cells, first paper does not
           b(matrixIndexCounter,0)= divergence;
       }
   }
@@ -331,7 +330,6 @@ void MacGrid::classifyPseudoPressureGradient()
   scalarField = m_solver.solve(b);
 
   #pragma omp parallel for
-  matrixIndexCounter = 0;
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
       if (i->second->material == Fluid) {
           float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
@@ -341,7 +339,6 @@ void MacGrid::classifyPseudoPressureGradient()
           i->second->uy -= yGradient;
           i->second->uz -= zGradient;
       }
-      //TO DO second paper mentions doing something different for air neighboring cells
   }
 }
 
