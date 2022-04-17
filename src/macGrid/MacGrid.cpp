@@ -29,12 +29,7 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 
 // Todo: @brynn ideally, this should take in a config file filepath, and read 
 //       everything from the file; is it possible to read vectors from the config file?
-MacGrid::MacGrid(float cellWidth,
-                 const Vector3i cellCount,
-                 const Vector3f cornerPosition) :
-  m_cellWidth(cellWidth),
-  m_cellCount(cellCount),
-  m_cornerPosition(cornerPosition)
+MacGrid::MacGrid()
 {
 #if SANITY_CHECKS
   assert(0 < cellWidth);
@@ -43,12 +38,31 @@ MacGrid::MacGrid(float cellWidth,
   assert(0 < cellCount[2]);
 #endif
 
-  // Read remaining fields from ini file
   QSettings settings("src/config.ini", QSettings::IniFormat);
-  m_fluidMeshFilepath        = settings.value(QString("fluidMeshFilepath")).toString().toStdString();
-  m_solidMeshFilepath        = settings.value(QString("solidMeshFilepath")).toString().toStdString();
-  m_simulationTime           = settings.value(QString("simulationTime")).toInt();
-  m_gravityVector            = Vector3f(0, settings.value(QString("gravity")).toFloat(), 0);
+
+  m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+  m_numParticlesPerArea = 1 / m_cellWidth / m_cellWidth;
+
+  m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
+                         settings.value(QString("cellCountY")).toInt(),
+                         settings.value(QString("cellCountZ")).toInt());
+
+  m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
+                              settings.value(QString("cornerPositionY")).toFloat(),
+                              settings.value(QString("cornerPositionZ")).toFloat());
+
+  m_solidMeshFilepath = settings.value(QString("solidMeshFilepath")).toString().toStdString();
+  m_fluidMeshFilepath = settings.value(QString("fluidMeshFilepath")).toString().toStdString();
+  m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
+                                     settings.value(QString("fluidInternalPositionY")).toFloat(),
+                                     settings.value(QString("fluidInternalPositionZ")).toFloat());
+
+  m_simulationTime = settings.value(QString("simulationTime")).toInt();
+
+  m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
+                             settings.value(QString("gravityY")).toFloat(),
+                             settings.value(QString("gravityZ")).toFloat());
+
   m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
 }
 
@@ -56,7 +70,8 @@ MacGrid::~MacGrid()
 {
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) delete kv->second;
   for (Particle * particle : m_particles)                    delete particle;
-  for (Particle * surfaceParticle : m_surfaceParticles)      delete surfaceParticle;
+  for (Particle * particle : m_solidSurfaceParticles)        delete particle;
+  for (Particle * particle : m_fluidSurfaceParticles)        delete particle;
 }
 
 void MacGrid::validate()
@@ -78,12 +93,12 @@ void MacGrid::validate()
 void MacGrid::init()
 {
   // Solid
-  meshToSurfaceParticles(m_solidMeshFilepath);
-  updateGridFromSurfaceParticles(Material::Solid);
+  meshToSurfaceParticles(m_solidSurfaceParticles, m_solidMeshFilepath);
+  assignParticleCellMaterials(Material::Solid, m_solidSurfaceParticles);
 
   // Fluid
-  meshToSurfaceParticles(m_fluidMeshFilepath);
-  updateGridFromSurfaceParticles(Material::Fluid);
+  meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
+  assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
   fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
   addParticlesToCells(Material::Fluid);
 }
@@ -182,65 +197,81 @@ void MacGrid::printGrid() const
 
 // ================== Initialization Helpers
 
-void MacGrid::meshToSurfaceParticles(string meshFilepath)
+inline float getRandomFloat()
 {
-    vector<Vector3f> vertices, normals;
-    vector<Vector3i> faces;
-    vector<Cell> cells;
-
-    // Load mesh (panic if failed)
-    if (!MeshLoader::loadTriMesh(meshFilepath, vertices, normals, faces)) {
-      cout << "MacGrid::convertFromMeshToParticles() failed to load mesh. Exiting!" << endl;
-      exit(1);
-    }
-
-    // Spawn particles on the surface of the mesh
-    for (unsigned int i = 0; i < vertices.size(); ++i) {
-        //create particle at vertices[i]
-    }
-    for (unsigned int i = 0; i < faces.size(); ++i) {
-        int numParticlesPerFace = 5;
-        for (unsigned int j = 0; j < numParticlesPerFace; j++) {
-            float alpha = (static_cast<float>(random())/RAND_MAX);
-            float beta = (static_cast<float>(random())/RAND_MAX);
-            float gamma = (static_cast<float>(random())/RAND_MAX);
-            float normalizationFactor = alpha+beta+gamma;
-            alpha /= normalizationFactor;
-            beta /= normalizationFactor;
-            gamma /= normalizationFactor;
-            //create particle at alpha*vertices[faces[i][0]] + beta*vertices[faces[i][1]] + gamma*vertices[faces[i][2]]
-        }
-    }
-
-    for (unsigned int i = 0; i < m_cells.size(); ++i) {
-        vector<Cell> path;
-        //step along x,y,z directions in turn, add cell to path
-        //terminate path if exit mesh
-        //if find voxel with same cell type, set cells on path to correct voxel type, add particle(s) to each cell
-    }
+  return static_cast <float> (arc4random()) / static_cast <float> (UINT32_MAX);
 }
 
-//Function to fill grid cells from internal position in mesh
-void MacGrid::fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition) {
-    Cell * newCell = new Cell{};
-    m_cells.insert({positionToIndices(internalPosition), newCell});
-    newCell->material = material;
-    fillGridCellsRecursive(material, positionToIndices(internalPosition));
+const Vector3f getRandomPositionOnTriangle(const Vector3f &a, const Vector3f &ab, const Vector3f &ac)
+{
+  float R = getRandomFloat();
+  float S = getRandomFloat();
+  if (R + S > 1) {
+    R = 1 - R;
+    S = 1 - S;
+  }
+  return a + R * ab + S * ac;
 }
 
-//Recursive function to create grid cells
-void MacGrid::fillGridCellsRecursive(Material material, const Eigen::Vector3i &cellPosition) {
-    for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
-        if (m_cells.find(cellPosition+neighborOffset) == m_cells.end()) {
-            Cell * newCell = new Cell{};
-            m_cells.insert({cellPosition, newCell});
-            newCell->material = material;
-            fillGridCellsRecursive(material,cellPosition+neighborOffset);
-        }
+// Fills the given vector with particles derived from the surface of the given mesh
+void MacGrid::meshToSurfaceParticles(vector<Particle *> &surfaceParticles, string meshFilepath)
+{
+  vector<Vector3f> vertices, normals;
+  vector<Vector3i> faces;
+  vector<Cell> cells;
+
+  // Load mesh (panic if failed)
+  if (!MeshLoader::loadTriMesh(meshFilepath, vertices, normals, faces)) {
+    cout << "MacGrid::convertFromMeshToParticles() failed to load mesh. Exiting!" << endl;
+    exit(1);
+  }
+
+  // Spawn particles on the mesh's vertices
+  for (const Vector3f &vertexPosition : vertices) {
+    surfaceParticles.push_back(
+      new Particle{nullptr, vertexPosition, Vector3f::Zero()});
+  }
+
+  // Spawn particles on the mesh's faces
+  for (const Vector3i &face : faces) {
+
+    const Vector3f &a = vertices[face[0]];
+    const Vector3f ab = vertices[face[1]] - a;
+    const Vector3f ac = vertices[face[2]] - a;
+
+    const Vector3f crossProduct = ab.cross(ac);
+    const int numParticles = min(1.0f, m_numParticlesPerArea * crossProduct.norm() / 2);
+
+    for (int i = 0; i < numParticles; ++i) {
+      surfaceParticles.push_back(
+        new Particle{nullptr, getRandomPositionOnTriangle(a, ab, ac), crossProduct.normalized()});
     }
+  }
 }
 
-//Adds particles to cells, does not set cell/particle relationships
+// Densely fills grid cells with the given material, starting from a given internal position
+void MacGrid::fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition)
+{
+  Cell * newCell = new Cell{};
+  m_cells.insert({positionToIndices(internalPosition), newCell});
+  newCell->material = material;
+  fillGridCellsRecursive(material, positionToIndices(internalPosition));
+}
+
+// Recursive helper function for the above
+void MacGrid::fillGridCellsRecursive(Material material, const Eigen::Vector3i &cellIndices) {
+  for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
+    const Vector3i neighborIndices = cellIndices + neighborOffset;
+    if (m_cells.find(neighborIndices) == m_cells.end() && withinBounds(neighborIndices)) {
+      Cell * newCell = new Cell{};
+      newCell->material = material;
+      m_cells.insert({neighborIndices, newCell});
+      fillGridCellsRecursive(material, neighborIndices);
+    }
+  }
+}
+
+// Adds particles to the system where cells of the given material are located, using stratified sampling (does not affect cell/particle relationship)
 void MacGrid::addParticlesToCells(Material material) {
     int strata = 3; //number of subdivisions per side, total number of subcells is strata**3
     int samplesPerStrata = 1; //number of particles per subcell
@@ -273,6 +304,9 @@ void MacGrid::updateGridFromSurfaceParticles(Material material, bool fillInnerSp
   // Fill inner space
   if (!fillInnerSpace) return;
   assignInnerCellMaterials(material);
+  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+    // TO DO
+  }
 }
 
 // ================== Simulation Helpers
