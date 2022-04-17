@@ -16,7 +16,7 @@ class MacGrid
 {
   public:
 
-    MacGrid(float cellWidth, const Eigen::Vector3i cellCount, const Eigen::Vector3f cornerPosition);
+    MacGrid();
     ~MacGrid();
 
     void validate();
@@ -30,24 +30,25 @@ class MacGrid
 
   private:
 
-    const float m_cellWidth;
-    const Eigen::Vector3i m_cellCount;
-    const Eigen::Vector3f m_cornerPosition;
+    float m_cellWidth;
+    float m_numParticlesPerArea;
+    Eigen::Vector3i m_cellCount;
+    Eigen::Vector3f m_cornerPosition;
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
     std::vector<Particle *> m_particles;
 
-
     // Initialization Helpers
 
-    std::string m_fluidMeshFilepath;
-    std::string m_solidMeshFilepath;
-    std::vector<Particle *> m_surfaceParticles; // this is used only temporarily for loading in
-                                                // meshes; perhaps we could use the velocity field
-                                                // to indicate the inward direction of the mesh?
-    void meshToSurfaceParticles(const std::string meshFilepath);
-    void updateGridFromSurfaceParticles(Material material);
+    std::string             m_solidMeshFilepath;
+    std::vector<Particle *> m_solidSurfaceParticles;
+
+    std::string             m_fluidMeshFilepath;
+    std::vector<Particle *> m_fluidSurfaceParticles;
+    Eigen::Vector3f         m_fluidInternalPosition;
+
+    void meshToSurfaceParticles(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
     void fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition);
-    void fillGridCellsRecursive(Material material, const Eigen::Vector3i &cellPosition);
+    void fillGridCellsRecursive           (Material material, const Eigen::Vector3i &cellPosition);
     void addParticlesToCells(Material material);
 
     // Simulation Helpers
@@ -65,7 +66,9 @@ class MacGrid
     // Miscellaneous Helpers
 
     void assignParticleCellMaterials(Material material, std::vector<Particle *> &particles);
+
     const Eigen::Vector3i positionToIndices(const Eigen::Vector3f &position) const;
+
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };
 
