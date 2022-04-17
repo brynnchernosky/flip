@@ -240,11 +240,28 @@ void MacGrid::fillGridCellsRecursive(Material material, const Eigen::Vector3i &c
     }
 }
 
-//Adds particles to cells, does not affect cell/particle relationship
+//Adds particles to fluid cells, does not affect cell/particle relationship
 void MacGrid::addParticlesToCells(Material material) {
 #pragma omp parallel for
     for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-        //TO DO
+        if (i->second->material == Fluid) {
+            int strata = 3; //number of subdivisions per side, total number of subcells is strata**3
+            int samplesPerStrata = 1; //number of particles per subcell
+            for (int x = 0; x < strata; x++) {
+                for (int y = 0; y < strata; y++) {
+                    for (int z = 0; z < strata; z++) {
+                        float alpha = (static_cast<float>(random())/RAND_MAX);
+                        float beta = (static_cast<float>(random())/RAND_MAX);
+                        float gamma = (static_cast<float>(random())/RAND_MAX);
+                        Vector3f position(m_cellWidth*i->first[0],m_cellWidth*i->first[1],m_cellWidth*i->first[2]);
+                        position += Vector3f(x*m_cellWidth/strata,y*m_cellWidth/strata,z*m_cellWidth/strata);
+                        position += Vector3f(alpha*m_cellWidth/strata,beta*m_cellWidth/strata,gamma*m_cellWidth/strata);
+                        Particle * newParticle = new Particle{nullptr, position, Vector3f(0,0,0)};
+                        m_particles.push_back(newParticle);
+                    }
+                }
+            }
+        }
     }
 }
 
