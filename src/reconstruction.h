@@ -35,17 +35,23 @@ private:
      * @param grid - index of the grid corner
      * @return the signed distance for that gridpoint
      */
-    double calculateSignedDistance (Eigen::Vector3i grid_corner);
+    bool calculateSignedDistance (Eigen::Vector3i grid_corner, double &toWrite);
 
-    Eigen::Vector3i GridIDtoXYZ(int idx);
+//    Eigen::Vector3i GridIDtoXYZ(int idx);
+
+//    /**
+//     * @brief XYZtoGridID - converts xyz coordinates to grid index, for converting cell corners to grid IDs
+//     * cells are indexed by the front top left corner xyz point
+//     * @param xyz - x,y,z coordinates of the cell
+//     * @return index to the grid vector
+//     */
+//    int XYZtoGridID(Eigen::Vector3i xyz);
 
     /**
-     * @brief XYZtoGridID - converts xyz coordinates to grid index
-     * cells are indexed by the front top left corner xyz point
+     * @brief XYZtoGridID - converts xyz coordinates to grid index, for placing points into cells
      * @param xyz - x,y,z coordinates of the cell
      * @return index to the grid vector
      */
-    int XYZtoGridID(Eigen::Vector3i xyz);
     int XYZtoGridID(Eigen::Vector3f xyz);
 
     /**
@@ -55,6 +61,7 @@ private:
      */
     double kernel(double s);
 
+    //Member variables
     float m_searchRadius;
     float m_gridSpacing;
     int m_numOfGrids;
@@ -63,6 +70,8 @@ private:
     int m_gridHeight; //corresponds with x
     int m_gridWidth; //corresponds with y
     int m_gridLength; // corresponds with z
+
+    Eigen::Vector3f m_center; //Represents the center of the grid
 
     std::vector<Eigen::Vector3f> _particles;
     std::unordered_map<int, std::unordered_set<int>> m_cellToParticle;
