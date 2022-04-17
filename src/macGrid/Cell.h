@@ -14,6 +14,7 @@ struct Cell
   float uy;
   float uz;
   float p;
+  int index;
 
   Material material = Material::Air;
   int layer = -1;

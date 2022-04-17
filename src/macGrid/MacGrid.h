@@ -2,6 +2,9 @@
 #define MACGRID_H
 
 #include <Eigen/Dense>
+#include <Eigen/IterativeLinearSolvers>
+#include <Eigen/SparseCore>
+#include <Eigen/SparseCholesky>
 #include <vector>
 
 #include "HashMap.h"
@@ -33,6 +36,7 @@ class MacGrid
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
     std::vector<Particle *> m_particles;
 
+
     // Initialization Helpers
 
     std::string m_fluidMeshFilepath;
@@ -57,6 +61,8 @@ class MacGrid
 
     // Miscellaneous Helpers
 
+    void assignParticleCellMaterials(Material material, std::vector<Particle *> &particles);
+    void assignInnerCellMaterials(Material material);
     const Eigen::Vector3i positionToIndices(const Eigen::Vector3f &position) const;
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };
