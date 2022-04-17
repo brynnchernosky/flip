@@ -77,10 +77,14 @@ void MacGrid::validate()
 
 void MacGrid::init()
 {
+  // Solid
   meshToSurfaceParticles(m_solidMeshFilepath);
-  updateGridFromSurfaceParticles(Material::Solid, false);
+  updateGridFromSurfaceParticles(Material::Solid);
+
+  // Fluid
   meshToSurfaceParticles(m_fluidMeshFilepath);
-  updateGridFromSurfaceParticles(Material::Fluid, true);
+  updateGridFromSurfaceParticles(Material::Fluid);
+  fillGridFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
 }
 
 void MacGrid::simulate()
@@ -453,12 +457,6 @@ void MacGrid::assignParticleCellMaterials(Material material, vector<Particle *> 
       cell->layer = 0;
     }
   }
-}
-
-// Assigns the materials of cells contained within the surface particles, by using a fill method
-void MacGrid::assignInnerCellMaterials(Material material)
-{
-  // Todo
 }
 
 // Converts a given position to the indices of the cell which would contain it

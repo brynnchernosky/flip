@@ -45,7 +45,8 @@ class MacGrid
                                                 // meshes; perhaps we could use the velocity field
                                                 // to indicate the inward direction of the mesh?
     void meshToSurfaceParticles(const std::string meshFilepath);
-    void updateGridFromSurfaceParticles(Material material, bool fillInnerSpace);
+    void updateGridFromSurfaceParticles(Material material);
+    void fillGridFromInternalPosition(Material material, const Vector3f &internalPosition);
 
     // Simulation Helpers
 
@@ -62,7 +63,6 @@ class MacGrid
     // Miscellaneous Helpers
 
     void assignParticleCellMaterials(Material material, std::vector<Particle *> &particles);
-    void assignInnerCellMaterials(Material material);
     const Eigen::Vector3i positionToIndices(const Eigen::Vector3f &position) const;
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };
