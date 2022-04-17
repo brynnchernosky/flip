@@ -38,7 +38,7 @@ MacGrid::MacGrid()
   assert(0 < cellCount[2]);
 #endif
 
-  QSettings settings("src/config.ini", QSettings::IniFormat);
+  QSettings settings("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/src/config.ini", QSettings::IniFormat);
 
   m_cellWidth = settings.value(QString("cellWidth")).toFloat();
   m_numParticlesPerArea = 1 / m_cellWidth / m_cellWidth;
@@ -97,10 +97,10 @@ void MacGrid::init()
   assignParticleCellMaterials(Material::Solid, m_solidSurfaceParticles);
 
   // Fluid
-  meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
-  assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
-  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
-  addParticlesToCells(Material::Fluid);
+//  meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
+//  assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
+//  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+//  addParticlesToCells(Material::Fluid);
 }
 
 void MacGrid::simulate()
@@ -191,7 +191,7 @@ void MacGrid::printGrid() const
     return;
   }
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-    cout << Debug::cellToString(kv->second) << endl;
+    cout << Debug::vectorToString(kv->first) << ": " << Debug::cellToString(kv->second) << endl;
   }
 }
 
@@ -387,18 +387,18 @@ void MacGrid::classifyPseudoPressureGradient()
 
   Eigen::Matrix3f scalarField;
   scalarField.resize(m_cells.size(),1);
-  m_solver.compute(A);
+  // m_solver.compute(A);
   scalarField = m_solver.solve(b);
 
-  #pragma omp parallel for
+#pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
       if (i->second->material == Fluid) {
-          float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-          float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-          float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-          i->second->ux -= xGradient;
-          i->second->uy -= yGradient;
-          i->second->uz -= zGradient;
+//          float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+//          float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+//          float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+//          i->second->ux -= xGradient;
+//          i->second->uy -= yGradient;
+//          i->second->uz -= zGradient;
       }
   }
 }
