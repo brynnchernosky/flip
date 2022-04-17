@@ -296,19 +296,6 @@ void MacGrid::addParticlesToCells(Material material) {
     }
 }
 
-void MacGrid::updateGridFromSurfaceParticles(Material material, bool fillInnerSpace)
-{
-  // Update grid cells
-  assignParticleCellMaterials(material, m_surfaceParticles);
-
-  // Fill inner space
-  if (!fillInnerSpace) return;
-  assignInnerCellMaterials(material);
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    // TO DO
-  }
-}
-
 // ================== Simulation Helpers
 
 void MacGrid::applyExternalForces(float deltaTime)
