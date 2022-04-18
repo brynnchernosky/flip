@@ -39,7 +39,7 @@ MacGrid::MacGrid()
   assert(0 < cellCount[2]);
 #endif
 
-  QSettings settings("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/src/config.ini", QSettings::IniFormat);
+  QSettings settings("src/config.ini", QSettings::IniFormat);
 
   m_cellWidth = settings.value(QString("cellWidth")).toFloat();
   m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
