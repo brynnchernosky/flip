@@ -49,7 +49,7 @@ class MacGrid
 
     void meshToSurfaceParticles(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
     void fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition);
-    void fillGridCellsRecursive           (Material material, const Eigen::Vector3i &cellPosition);
+    void fillGridCellsRecursive           (Material material, int layerNumber, const Eigen::Vector3i &cellPosition);
     void addParticlesToCells(Material material);
 
     // Simulation Helpers

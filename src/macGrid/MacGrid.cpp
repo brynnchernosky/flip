@@ -280,22 +280,47 @@ void MacGrid::meshToSurfaceParticles(vector<Particle *> &surfaceParticles, strin
 // Densely fills grid cells with the given material, starting from a given internal position
 void MacGrid::fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition)
 {
+  const Vector3i cellIndices = positionToIndices(internalPosition);
+  const int layerNumber = material == Material::Fluid ? 0 : 100;
+
+#if SANITY_CHECKS
+  assert(withinBounds(cellIndices));
+#endif
+
+  // Check that it doesn't already exist
+  if (m_cells.find(cellIndices) != m_cells.end()) {
+    assert(m_cells.find(cellIndices)->second->material == Material::Fluid);
+    return;
+  }
+
+  // Create a cell here
   Cell * newCell = new Cell{};
-  m_cells.insert({positionToIndices(internalPosition), newCell});
   newCell->material = material;
-  fillGridCellsRecursive(material, positionToIndices(internalPosition));
+  newCell->layer = layerNumber;
+  m_cells.insert({cellIndices, newCell});
+
+  // Recursively fill neighbors
+  fillGridCellsRecursive(material, layerNumber, cellIndices);
 }
 
 // Recursive helper function for the above
-void MacGrid::fillGridCellsRecursive(Material material, const Eigen::Vector3i &cellIndices) {
+void MacGrid::fillGridCellsRecursive(Material material, int layerNumber, const Eigen::Vector3i &cellIndices) {
+
+  // For each neighbor
   for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
     const Vector3i neighborIndices = cellIndices + neighborOffset;
-    if (m_cells.find(neighborIndices) == m_cells.end() && withinBounds(neighborIndices)) {
-      Cell * newCell = new Cell{};
-      newCell->material = material;
-      m_cells.insert({neighborIndices, newCell});
-      fillGridCellsRecursive(material, neighborIndices);
-    }
+
+    // Move on if it already exists or is outside the bounds
+    if (m_cells.find(neighborIndices) != m_cells.end() || !withinBounds(neighborIndices)) continue;
+
+    // Create a cell here
+    Cell * newCell = new Cell{};
+    newCell->material = material;
+    newCell->layer = layerNumber;
+    m_cells.insert({neighborIndices, newCell});
+
+    // Recursively fill neighbors
+    fillGridCellsRecursive(material, layerNumber, neighborIndices);
   }
 }
 
@@ -495,6 +520,8 @@ void MacGrid::updateParticlePositions()
 // Assigns the materials of cells which themselves contain particles,
 void MacGrid::assignParticleCellMaterials(Material material, vector<Particle *> &particles)
 {
+  const int layerNumber = material == Material::Fluid ? 0 : 100;
+
   // Iterate through particles
   for (Particle * const particle : particles) {
 
@@ -513,7 +540,7 @@ void MacGrid::assignParticleCellMaterials(Material material, vector<Particle *> 
 
         // Set its material and layer
         newCell->material = material;
-        newCell->layer = 0;
+        newCell->layer = layerNumber;
       }
 
       continue;
