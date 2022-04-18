@@ -3,23 +3,23 @@
 #include <fstream>
 #include <string>
 
-const double DOUBLE_MAX = std::numeric_limits<double>::max();
+const double FLOAT_MAX = std::numeric_limits<float>::max();
 
 Reconstruction::Reconstruction():
     m_gridSpacing(1),
-    m_numOfParticles(64),
-    m_gridHeight(2),
-    m_gridWidth(2),
-    m_gridLength(2)
+    m_numOfParticles(10000),
+    m_gridHeight(30),
+    m_gridWidth(30),
+    m_gridLength(30)
 {
     //TODO:
     //need to set: m_numOfParticles, m_gridLength, m_gridWidth, m_gridHeight, m_gridSpace, m_searchRadius
 
     m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
 
-    float height_offset = m_gridHeight / 2.f;
-    float width_offset = m_gridWidth / 2.f;
-    float length_offset = m_gridLength / 2.f;
+    float height_offset = (m_gridHeight / 2.f) * m_gridSpacing;
+    float width_offset = (m_gridWidth / 2.f) * m_gridSpacing;
+    float length_offset = (m_gridLength / 2.f) * m_gridSpacing;
     m_center = Eigen::Vector3f(height_offset, width_offset, length_offset);
 }
 
@@ -28,53 +28,26 @@ Reconstruction::~Reconstruction() {}
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath) {
 
     loadParticles(input_filepath);
+     //Ccalculate signed distances for all grid corners
+    std::vector<int> invalid;
+    _gridCorners.reserve(m_numOfGrids);
     for (int x = 0; x < m_gridHeight; x++) {
-        for (int y = 0; y < m_gridLength; y++) {
-            for (int z = 0; z < m_gridWidth; z++) {
-                Eigen::Vector3f corner(x,y,z);
-                std::cout << XYZtoGridID(corner) << std::endl;
+        for (int y = 0; y < m_gridWidth; y++) {
+            for (int z = 0; z < m_gridLength; z++) {
+                //TODO: implement signed distance
+                double toWrite;
+                if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
+                    _gridCorners.push_back(toWrite);
+                } else {
+                    _gridCorners.push_back(FLOAT_MAX);
+                    invalid.push_back(XYZtoGridID(Eigen::Vector3f(x, y, z)));
+                }
             }
         }
     }
-     //TODO: calculate signed distances for all grid corners
-//    std::vector<double> signed_distances;
-//    std::vector<int> invalid;
-//    signed_distances.reserve(m_numOfGrids);
-//    for (int x = 0; x < m_gridHeight; x++) {
-//        for (int y = 0; y < m_gridWidth; y++) {
-//            for (int z = 0; z < m_gridLength; z++) {
-//                //TODO: implement signed distance
-//                double toWrite;
-//                if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
-//                    signed_distances.push_back(toWrite);
-//                } else {
-//                    signed_distances.push_back(DOUBLE_MAX);
-//                    invalid.push_back(XYZtoGridID(Eigen::Vector3i(x, y, z)));
-//                }
-//            }
-//        }
-//    }
 
+    writeGrid(output_filepath);
 }
-
-//Eigen::Vector3i Reconstruction::GridIDtoXYZ(int idx){
-//    int z = idx/(m_gridLength*m_gridWidth);
-//    int y = (idx/(m_gridLength*m_gridWidth))/m_gridLength;
-//    int x = (idx/(m_gridLength*m_gridWidth))%m_gridLength;
-
-//    return Eigen::Vector3i(x,y,z);
-//}
-
-//int Reconstruction::XYZtoGridID(Eigen::Vector3i xyz){
-//    float x_f = xyz[0]/m_gridSpacing;
-//    float y_f = xyz[1]/m_gridSpacing;
-//    float z_f = xyz[2]/m_gridSpacing;
-//    int x = floor(x_f);
-//    int y = floor(y_f);
-//    int z = floor(z_f);
-
-//    return m_gridLength*m_gridWidth*x + m_gridLength*y +z;
-//}
 
 int Reconstruction::XYZtoGridID(Eigen::Vector3f xyz){
     int x = floor(xyz[0]);
@@ -121,7 +94,36 @@ void Reconstruction::loadParticles(string input_filepath){
             m_cellToParticle[index] = setOfParticles;
         }
     }
+}
 
+void Reconstruction::writeGrid(string output_filepath) {
+    fstream fout;
+    fout.open(output_filepath, ios::out);
+    if(!fout.good()) {
+        std::cout << output_filepath << " could not be opened" << std::endl;
+        return;
+    }
+
+    std::string dimensions =
+            std::to_string(m_gridHeight) + ", " +
+            std::to_string(m_gridWidth) + ", " +
+            std::to_string(m_gridLength) + ", " +
+            std::to_string(m_numOfParticles);
+    fout << dimensions << std::endl;
+
+    for (int x = 0; x < m_gridHeight; x++) {
+        for (int y = 0; y < m_gridWidth; y++) {
+            for (int z = 0; z < m_gridLength; z++) {
+                Eigen::Vector3f corner(x, y, z);
+                float signed_distance = _gridCorners[XYZtoGridID(corner)];
+                std::string toWrite =
+                        std::to_string(x) + ", " +
+                        std::to_string(y) + ", " +
+                        std::to_string(z) + ", " + std::to_string(signed_distance) ;
+                fout << toWrite << std::endl;
+            }
+        }
+    }
 }
 
 double Reconstruction::kernel(double s) {
@@ -130,12 +132,15 @@ double Reconstruction::kernel(double s) {
 
 bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, double &toWrite) {
     //row - width, column - length, depth - height
-    int rowStart = max(0, grid_corner[1] - 3);
-    int rowEnd = min(m_gridWidth, grid_corner[1] + 3);
-    int colStart = max(0, grid_corner[2] - 3);
-    int colEnd = min(m_gridLength, grid_corner[2] + 3);
+    //x
     int depthStart = max(0, grid_corner[0] - 3);
     int depthEnd = min(m_gridHeight, grid_corner[0] + 3);
+    // y
+    int rowStart = max(0, grid_corner[1] - 3);
+    int rowEnd = min(m_gridWidth, grid_corner[1] + 3);
+    // z
+    int colStart = max(0, grid_corner[2] - 3);
+    int colEnd = min(m_gridLength, grid_corner[2] + 3);
 
     Eigen::Vector3f x_g(grid_corner[0], grid_corner[1], grid_corner[2]);
     std::unordered_map<int, double> neighbor_particle_weights; //maps particle_idx to w_i

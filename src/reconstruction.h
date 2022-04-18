@@ -31,6 +31,14 @@ private:
     void loadParticles(string input_filepath);
 
     /**
+     * @brief writeGrid - for a given output filepath, write grid
+     * @param output_filepath - filepath to write grid information to
+     * Given in format grid corner index, signed distance value (x, y, z, t)
+     * x, y, z are integer values (
+     */
+    void writeGrid(string output_filepath);
+
+    /**
      * @brief calculateSignedDistance - Calculates the signed distance at a grid corner
      * @param grid - index of the grid corner
      * @return the signed distance for that gridpoint
@@ -77,10 +85,8 @@ private:
     std::unordered_map<int, std::unordered_set<int>> m_cellToParticle;
 
     std::vector<float> _gridCorners;
-    std::vector<Eigen::Vector3f> _vertices;
-    std::vector<Eigen::Vector3f> _faces;
-
-
+//    std::vector<Eigen::Vector3f> _vertices;
+//    std::vector<Eigen::Vector3f> _faces;
 
 };
 
