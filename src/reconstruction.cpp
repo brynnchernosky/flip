@@ -7,14 +7,12 @@
 
 Reconstruction::Reconstruction():
     m_gridSpacing(1),
-    m_numOfParticles(5000),
+    m_numOfParticles(50000),
     m_gridHeight(30),
     m_gridWidth(30),
     m_gridLength(30)
 {
-    //TODO:
-    //need to set: m_numOfParticles, m_gridLength, m_gridWidth, m_gridHeight, m_gridSpace, m_searchRadius
-
+    m_searchRadius = 3 * m_gridSpacing;
     m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
 
     float height_offset = (m_gridHeight / 2.f) * m_gridSpacing;
@@ -26,7 +24,6 @@ Reconstruction::Reconstruction():
 Reconstruction::~Reconstruction() {}
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath) {
-
     struct dirent *entry;
     DIR *dp;
 
@@ -37,37 +34,41 @@ void Reconstruction::surface_reconstruction(string input_filepath, string output
     }
 
     while((entry = readdir(dp))) {
-        std::string filepath(entry->d_name);
-        std::cout << "Reading " << filepath << std::endl;
+        std::string filename(entry->d_name);
+        int period = filename.find(".");
+        std::string out = filename.substr(0, period);
 
-        loadParticles(input_filepath);
-         //Ccalculate signed distances for all grid corners
-        _gridCorners.reserve(m_numOfGrids);
-        for (int x = 0; x < m_gridHeight; x++) {
-            for (int y = 0; y < m_gridWidth; y++) {
-                for (int z = 0; z < m_gridLength; z++) {
-                    float toWrite;
-                    if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
-                        _gridCorners.push_back(toWrite);
-                    } else {
-                        //arbitrary, just needs to be a positive value
-                        //we're not estimating vertex normals with the SDF, we're doing it with topology so actually doesn't matter
-                        _gridCorners.push_back(100);
+        if (out.size()) {
+            std::string in = input_filepath + "/" + filename;
+            std::cout << "Reading " << in << std::endl;
+
+            loadParticles(in);
+             //Calculate signed distances for all grid corners
+            _gridCorners.clear();
+            _gridCorners.reserve(m_numOfGrids);
+            for (int x = 0; x < m_gridHeight; x++) {
+                for (int y = 0; y < m_gridWidth; y++) {
+                    for (int z = 0; z < m_gridLength; z++) {
+                        float toWrite;
+                        if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
+                            _gridCorners.push_back(toWrite);
+                        } else {
+                            //arbitrary, just needs to be a positive value
+                            //we're not estimating vertex normals with the SDF, we're doing it with topology so actually doesn't matter
+                            _gridCorners.push_back(100);
+                        }
                     }
                 }
             }
-        }
 
-        // Figure out how to set out from the current name
-        std::string out;
-        std::cout << "Writing to " << out << std::endl;
-        writeGrid(output_filepath);
+            out = output_filepath + "/" + out + ".csv";
+            std::cout << "Writing to " << out << std::endl;
+            writeGrid(out);
+        }
     }
 
     closedir(dp);
     return;
-
-
 }
 
 int Reconstruction::XYZtoGridID(Eigen::Vector3f xyz){
@@ -88,9 +89,11 @@ void Reconstruction::loadParticles(string input_filepath){
         return;
     }
 
+    _particles.clear();
+    _particles.reserve(m_numOfParticles);
     // Read the Data from the file as String Vector vector<string> row;
     string line, word, temp;
-    //for now, assume every line of .csv file is just particle positions separated by coma
+    //assume every line of .csv file is just particle positions separated by coma
     for(int i = 0; i < m_numOfParticles; i++){
         getline(fin, line);
         stringstream s(line);
@@ -104,6 +107,7 @@ void Reconstruction::loadParticles(string input_filepath){
         _particles.push_back(particle_pos);
     }
 
+    m_cellToParticle.clear();
     //grid index: row-first, then column, then stack
     for(int i = 0; i < m_numOfParticles; i++){
         int index = XYZtoGridID(_particles[i]);
@@ -164,7 +168,6 @@ bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, float
 
     Eigen::Vector3f x_g(grid_corner[0], grid_corner[1], grid_corner[2]);
     std::unordered_map<int, double> neighbor_particle_weights; //maps particle_idx to w_i
-    double R = 3 * m_gridSpacing;
 
     //Iterate through each cell in a 9x9 block around the given grid corner
     double total = 0.0;
@@ -176,9 +179,9 @@ bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, float
                 for (int particle_idx : in_cell_particles) {
                     Eigen::Vector3f vec = _particles[particle_idx] - x_g;
                     double distance = (vec).norm();
-                    if (distance <= R) {
+                    if (distance <= m_searchRadius) {
                         //Map each particle that is within distance R to corner to a weight, normalize after
-                        double w_i = kernel(vec.dot(vec) / std::pow(R, 2));
+                        double w_i = kernel(vec.dot(vec) / std::pow(m_searchRadius, 2));
                         neighbor_particle_weights[particle_idx] = w_i;
                         total += w_i;
                     }

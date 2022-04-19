@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import os
 import mcubes
+import open3d as o3d
 
 def parseArguments():
     parser = argparse.ArgumentParser()
@@ -9,6 +10,8 @@ def parseArguments():
         help="Folder containing all point cloud files to convert to meshes")
     parser.add_argument("--output_filepath", type=str, default="test_meshes",
         help="Folder to write all converted triangle meshes to, names will be transfered over")
+    parser.add_argument("--visualization", action="store_true", 
+        help="If enabled creates intermediate visualization for each object")
     args = parser.parse_args()
     return args
 
@@ -37,7 +40,7 @@ def generate_mesh(fin):
 
     return vertices, triangles
 
-def main():
+def main(args):
     # Open folder
 
     output_folder = args.output_filepath
@@ -46,12 +49,22 @@ def main():
 
     directory = os.fsencode(args.input_filepath)
     for file in os.listdir(directory):
-        filepath = os.fsdecode(file)
-        fin = open(filepath, "r")
-        vertices, triangles = generate_mesh(fin)
-        filename = filepath.split('.')[0]
-        output_filepath = os.path.join(output_folder, filename)
-        mcubes.export_obj(vertices, triangles, output_filepath)
+        filename = os.fsdecode(file)
+        if filename.endswith(".csv"):
+            input_sdf = os.path.join(args.input_filepath, filename)
+            print("Reading", input_sdf)
+            fin = open(input_sdf, "r")
+            vertices, triangles = generate_mesh(fin)
+
+            name = filename.split('.')[0]
+            output_filepath = os.path.join(output_folder, name) + ".obj"
+
+            mesh = o3d.geometry.TriangleMesh()
+            mesh.vertices = o3d.utility.Vector3dVector(np.asarray(vertices))
+            mesh.triangles = o3d.utility.Vector3iVector(np.asarray(triangles))
+            mesh.compute_vertex_normals()
+            o3d.io.write_triangle_mesh(output_filepath, mesh)
+            o3d.visualization.draw_geometries([mesh])
 
 if __name__ == '__main__':
     args = parseArguments()
