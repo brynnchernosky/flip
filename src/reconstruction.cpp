@@ -2,12 +2,12 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-
-const double FLOAT_MAX = std::numeric_limits<float>::max();
+#include <stdio.h>
+#include <dirent.h>
 
 Reconstruction::Reconstruction():
     m_gridSpacing(1),
-    m_numOfParticles(10000),
+    m_numOfParticles(5000),
     m_gridHeight(30),
     m_gridWidth(30),
     m_gridLength(30)
@@ -27,26 +27,47 @@ Reconstruction::~Reconstruction() {}
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath) {
 
-    loadParticles(input_filepath);
-     //Ccalculate signed distances for all grid corners
-    std::vector<int> invalid;
-    _gridCorners.reserve(m_numOfGrids);
-    for (int x = 0; x < m_gridHeight; x++) {
-        for (int y = 0; y < m_gridWidth; y++) {
-            for (int z = 0; z < m_gridLength; z++) {
-                //TODO: implement signed distance
-                double toWrite;
-                if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
-                    _gridCorners.push_back(toWrite);
-                } else {
-                    _gridCorners.push_back(FLOAT_MAX);
-                    invalid.push_back(XYZtoGridID(Eigen::Vector3f(x, y, z)));
+    struct dirent *entry;
+    DIR *dp;
+
+    dp = opendir(input_filepath.data());
+    if (dp == NULL) {
+        std::cerr << "opendir: " << input_filepath << " does not exist or could not be read" << std::endl;
+        return;
+    }
+
+    while((entry = readdir(dp))) {
+        std::string filepath(entry->d_name);
+        std::cout << "Reading " << filepath << std::endl;
+
+        loadParticles(input_filepath);
+         //Ccalculate signed distances for all grid corners
+        _gridCorners.reserve(m_numOfGrids);
+        for (int x = 0; x < m_gridHeight; x++) {
+            for (int y = 0; y < m_gridWidth; y++) {
+                for (int z = 0; z < m_gridLength; z++) {
+                    float toWrite;
+                    if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
+                        _gridCorners.push_back(toWrite);
+                    } else {
+                        //arbitrary, just needs to be a positive value
+                        //we're not estimating vertex normals with the SDF, we're doing it with topology so actually doesn't matter
+                        _gridCorners.push_back(100);
+                    }
                 }
             }
         }
+
+        // Figure out how to set out from the current name
+        std::string out;
+        std::cout << "Writing to " << out << std::endl;
+        writeGrid(output_filepath);
     }
 
-    writeGrid(output_filepath);
+    closedir(dp);
+    return;
+
+
 }
 
 int Reconstruction::XYZtoGridID(Eigen::Vector3f xyz){
@@ -63,7 +84,7 @@ void Reconstruction::loadParticles(string input_filepath){
     fstream fin;
     fin.open(input_filepath, ios::in);
     if(!fin.good()) {
-        std::cout << input_filepath << " could not be opened" << std::endl;
+        std::cerr << input_filepath << " could not be opened" << std::endl;
         return;
     }
 
@@ -100,15 +121,14 @@ void Reconstruction::writeGrid(string output_filepath) {
     fstream fout;
     fout.open(output_filepath, ios::out);
     if(!fout.good()) {
-        std::cout << output_filepath << " could not be opened" << std::endl;
+        std::cerr << output_filepath << " could not be opened" << std::endl;
         return;
     }
 
     std::string dimensions =
             std::to_string(m_gridHeight) + ", " +
             std::to_string(m_gridWidth) + ", " +
-            std::to_string(m_gridLength) + ", " +
-            std::to_string(m_numOfParticles);
+            std::to_string(m_gridLength);
     fout << dimensions << std::endl;
 
     for (int x = 0; x < m_gridHeight; x++) {
@@ -126,11 +146,11 @@ void Reconstruction::writeGrid(string output_filepath) {
     }
 }
 
-double Reconstruction::kernel(double s) {
+float Reconstruction::kernel(float s) {
     return std::max(0.0, std::pow(1 - s, 3));
 }
 
-bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, double &toWrite) {
+bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, float &toWrite) {
     //row - width, column - length, depth - height
     //x
     int depthStart = max(0, grid_corner[0] - 3);

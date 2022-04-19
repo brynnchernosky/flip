@@ -11,6 +11,8 @@ class Reconstruction
 {
 public:
     Reconstruction();
+//    Reconstruction(int grid_spacing, int numOfParticles,
+//                   int gridHeight, int gridWidth, int gridLength);
     ~Reconstruction();
 
     /**
@@ -43,17 +45,7 @@ private:
      * @param grid - index of the grid corner
      * @return the signed distance for that gridpoint
      */
-    bool calculateSignedDistance (Eigen::Vector3i grid_corner, double &toWrite);
-
-//    Eigen::Vector3i GridIDtoXYZ(int idx);
-
-//    /**
-//     * @brief XYZtoGridID - converts xyz coordinates to grid index, for converting cell corners to grid IDs
-//     * cells are indexed by the front top left corner xyz point
-//     * @param xyz - x,y,z coordinates of the cell
-//     * @return index to the grid vector
-//     */
-//    int XYZtoGridID(Eigen::Vector3i xyz);
+    bool calculateSignedDistance (Eigen::Vector3i grid_corner, float &toWrite);
 
     /**
      * @brief XYZtoGridID - converts xyz coordinates to grid index, for placing points into cells
@@ -67,7 +59,7 @@ private:
      * @param s - input value
      * @return output value
      */
-    double kernel(double s);
+    float kernel(float s);
 
     //Member variables
     float m_searchRadius;
@@ -85,9 +77,6 @@ private:
     std::unordered_map<int, std::unordered_set<int>> m_cellToParticle;
 
     std::vector<float> _gridCorners;
-//    std::vector<Eigen::Vector3f> _vertices;
-//    std::vector<Eigen::Vector3f> _faces;
-
 };
 
 #endif // RECONSTRUCTION_H
