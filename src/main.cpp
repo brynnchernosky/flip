@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "reconstruction.h"
+#include "macGrid/MacGrid.h"
 
 using namespace std;
 
