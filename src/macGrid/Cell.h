@@ -2,19 +2,24 @@
 #define CELL_H
 
 #include <Eigen/Dense>
+#include <set>
 
-struct HalfFace;
+#include "src/macGrid/Material.h"
+
+struct Particle;
 
 struct Cell
 {
-  HalfFace *top;
-  HalfFace *bottom;
-  HalfFace *north;
-  HalfFace *south;
-  HalfFace *east;
-  HalfFace *west;
+  float ux;
+  float uy;
+  float uz;
+  float p;
+  int index;
 
-  float pseudoPressure;
+  Material material = Material::Air;
+  int layer = -1;
+
+  std::set<Particle *> particles;
 };
 
 #endif // CELL_H

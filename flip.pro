@@ -15,9 +15,12 @@ SOURCES += \
 
 HEADERS += \
     src/flip.h \
+    src/Debug.h \
     src/macGrid/Cell.h \
-    src/macGrid/Face.h \
+    src/macGrid/HashMap.h \
+    src/macGrid/Particle.h \
     src/macGrid/MacGrid.h \
+    src/macGrid/Material.h \
     src/graphics/shape.h \
     src/graphics/MeshLoader.h \
     src/reconstruction.h
@@ -27,4 +30,7 @@ HOME_DIR = $$(HOME)
 QMAKE_CXXFLAGS = -I "$${HOME_DIR}/eigen-git-mirror"
 INCLUDEPATH    += "$${HOME_DIR}/eigen-git-mirror"
 DEPENDPATH     += "$${HOME_DIR}/eigen-git-mirror"
+
+DISTFILES += \
+    src/config.ini
 

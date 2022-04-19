@@ -9,10 +9,20 @@
 #include "macGrid/MacGrid.h"
 
 using namespace std;
+using namespace Eigen;
 
 // This is a command line application with one argument
 int main(int argc, char *argv[])
 {
+  // ================== To delete
+
+  MacGrid grid;
+  grid.init();
+  grid.updateGrid();
+  grid.printGrid();
+
+  // ================== End to delete
+
   QCoreApplication a(argc, argv);
   QCommandLineParser parser;
 
