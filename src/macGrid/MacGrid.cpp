@@ -356,65 +356,74 @@ void MacGrid::updateParticleVelocities()
     idx[0] = floor(particlePos[0]);//l
     idx[1] = floor(particlePos[1]);//m
     idx[2] = floor(particlePos[2]);//n
-    Vector3f weights = Vector3f(particlePos[0]+1-particlePos[0], particlePos[1]+1-particlePos[1], particlePos[2]+1-particlePos[2]);
-
-    // Calculate FLIP particle velocity
-//    Vector3i pariticlePosition = positionToIndices(particle->position);
+    Vector3f weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
+    float picx, picy, picz = 0;
+    float flipx, flipy, flipz = 0;
     for(int l = 0; l < 2; l++){
         for(int m = 0; m < 2; m++){
             for(int n = 0; n < 2; n++){
-
+                if (l == 1){weights[0] = particlePos[0] - idx[0];}
+                if (m == 1){weights[1] = particlePos[1] - idx[1];}
+                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+                Vector3i offset = Vector3i(l, m, n);
+                // Calculate PIC particle velocity
+                picx = picx + weights[0]*m_cells[gridIdx+offset]->ux;
+                picy = picy + weights[1]*m_cells[gridIdx+offset]->uy;
+                picz = picz + weights[2]*m_cells[gridIdx+offset]->uz;
+                // Calculate FLIP particle velocity
+                flipx = flipx + weights[0]*(m_cells[gridIdx+offset]->ux - particle->velocity[0]);
+                flipy = flipy + weights[1]*(m_cells[gridIdx+offset]->ux - particle->velocity[1]);
+                flipz = flipz + weights[2]*(m_cells[gridIdx+offset]->ux - particle->velocity[2]);
             }
         }
     }
-//    //#1
-//    float wx = l+1-particlePos[0];
-//    float wy = m+1-particlePos[1];
-//    float wz = n+1-particlePos[2];
-//    float vx = wx*m_cells[gridIdx]->ux;
-//    float vy = wy*m_cells[gridIdx]->uy;
-//    float vz = wz*m_cells[gridIdx]->uz;
-//    //#2
-//    Vector3i offset = Vector3i(1,0,0);
-//    wx = particlePos[0]-l;
-//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
-//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
-//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
-//    //#3
-//    offset = Vector3i(0,1,0);
-//    wx = l+1-particlePos[0];
-//    wy = particlePos[1] - m;
-//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
-//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
-//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
-//    //#4
-//    offset = Vector3i(1,1,0);
-//    wx = particlePos[0]-l;
-//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
-//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
-//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
-//    //#5
-//    offset = Vector3i(1,1,0);
-//    wx = particlePos[0]-l;
-//    vx = vx + wx*m_cells[gridIdx+offset]->ux;
-//    vy = vy + wy*m_cells[gridIdx+offset]->uy;
-//    vz = vz + wz*m_cells[gridIdx+offset]->uz;
-
-
-    // Calculate PIC particle velocity
+    Vector3f pic = Vector3f(picx, picy, picz);
+    Vector3f flip = Vector3f(flipx, flipy, flipz);
 
     // Update particle with interpolated PIC/FLIP velocities
+    particle->velocity = m_interpolationCoefficient*pic + (1-m_interpolationCoefficient)*(particle->velocity+flip);
   }
 }
 
 void MacGrid::updateParticlePositions()
 {
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * particle = m_particles[i];
-
     // Runge-Kutta 2 ODE solver
-  }
+    float timestep;
+    float maxV = 0;
+    for (unsigned int i = 0; i < m_particles.size(); ++i) {
+        Particle * particle = m_particles[i];
+        if(m_particles[i]->velocity.norm()>=maxV){maxV = m_particles[i]->velocity.norm();}
+    }
+    timestep = m_cellWidth/maxV;
+    std::vector<Vector3f> oldPos;
+    updateParticleVelocities();
+    for (unsigned int i = 0; i < m_particles.size(); ++i) {
+        Particle * particle = m_particles[i];
+        oldPos.push_back(particle->position);
+        particle->position = particle->position + particle->velocity*timestep*0.5;
+        //TODO: fix problem of particle penetrating the solid cell
+        Vector3i gridIdx = positionToIndices(particle->position);
+        if(m_cells[gridIdx]->material == Material::Solid){
+            Vector3i oldIdx = positionToIndices(oldPos[i]);
+            Vector3i movement = oldIdx-gridIdx;
+            Vector3i offset = Vector3i(0,0,0);
+            for(int j = 0; j<3; j++){
+                offset[j] = movement[j];
+                if(movement[j] == 0 && m_cells[gridIdx + offset]->material!=Material::Fluid){
+                    offset[j] = 0;
+                }
+            }
+            particle->position = Vector3f(gridIdx[0] + offset[0] +0.5,gridIdx[1] + offset[1] + 0.5,gridIdx[2] + offset[2] +0.5)*m_cellWidth+m_cornerPosition;
+        }
+    }
+    updateGrid();
+    updateParticleVelocities();
+    for (unsigned int i = 0; i < m_particles.size(); ++i) {
+        Particle * particle = m_particles[i];
+        particle->position = oldPos[i] + particle->velocity*timestep;
+    }
+    m_simulationTime = m_simulationTime + timestep;
 }
 
 // ================== Miscellaneous Helpers
