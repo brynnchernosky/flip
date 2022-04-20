@@ -20,6 +20,7 @@ SOURCES += \
     src/view.cpp \
     src/flip.cpp \
     src/main.cpp \
+    src/reconstruction.cpp \
     src/mainwindow.cpp \
     src/viewformat.cpp \
     src/graphics/shape.cpp \
@@ -32,6 +33,7 @@ SOURCES += \
 HEADERS += \
     src/flip.h \
     src/Debug.h \
+    src/reconstruction.h \
     src/macGrid/Cell.h \
     src/macGrid/HashMap.h \
     src/macGrid/Particle.h \
