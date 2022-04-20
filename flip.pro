@@ -23,6 +23,7 @@ SOURCES += \
     src/mainwindow.cpp \
     src/viewformat.cpp \
     src/graphics/shape.cpp \
+    src/reconstruction.cpp \
     src/macGrid/MacGrid.cpp \
     src/graphics/MeshLoader.cpp \
     src/graphics/Shader.cpp \
@@ -39,6 +40,7 @@ HEADERS += \
     src/macGrid/Material.h \
     src/graphics/shape.h \
     src/graphics/MeshLoader.h \
+    src/reconstruction.h \ 
     src/mainwindow.h \
     src/view.h \
     src/viewformat.h \
