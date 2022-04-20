@@ -15,10 +15,8 @@ int main(int argc, char *argv[])
 {
   // ================== To delete
 
-  MacGrid grid(1, {3,3,3}, {0,0,0});
-  grid.addParticle({1.5,1.5,1.5}, Vector3f::Zero());
-  grid.addParticle({1.5,2.5,1.5}, Vector3f::Zero());
-  grid.addParticle({2.5,1.5,1.5}, Vector3f::Zero());
+  MacGrid grid;
+  grid.init();
   grid.updateGrid();
   grid.printGrid();
 
