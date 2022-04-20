@@ -5,6 +5,7 @@
 #include <ctime>
 #include <iostream>
 
+#include "reconstruction.h"
 #include "macGrid/MacGrid.h"
 
 using namespace std;
@@ -58,10 +59,16 @@ int main(int argc, char *argv[])
   }
   else if (method == "particle-to-mesh")
   {
-    // ParticleToMesh particleToMesh;
-    // particleToMesh.init();
-    // particleToMesh.convert();
-    cout << "Error: particle-to-mesh not yet implemented!" << endl;
+    if (args.size() != 3) {
+      cerr << "Usage: ./flip particle-to-mesh input_filepath output_filepath" << endl;
+      a.exit(1);
+      return 1;
+    }
+
+    const string input_filepath = args[1].toStdString();
+    const string output_filepath = args[2].toStdString();
+    Reconstruction converter;
+    converter.surface_reconstruction(input_filepath, output_filepath);
   }
   else
   {
