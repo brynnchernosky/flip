@@ -23,6 +23,7 @@ def generate_mesh(fin):
     x_dim = int(dims[0])
     y_dim = int(dims[1])
     z_dim = int(dims[2])
+    spacing = float(dims[3])
 
     u = np.zeros([x_dim, y_dim, z_dim])
     grid_size = x_dim * y_dim * z_dim
@@ -35,7 +36,7 @@ def generate_mesh(fin):
         u[index[0], index[1], index[2]] = sd
     
     vertices, triangles = mcubes.marching_cubes(u, 0)
-    center = [x_dim/2, y_dim/2, z_dim/2]
+    center = np.array([x_dim/2, y_dim/2, z_dim/2]) * spacing
     vertices = vertices - center
 
     return vertices, triangles

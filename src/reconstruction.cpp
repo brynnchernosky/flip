@@ -6,11 +6,11 @@
 #include <dirent.h>
 
 Reconstruction::Reconstruction():
-    m_gridSpacing(1),
+    m_gridSpacing(0.5),
     m_numOfParticles(50000),
-    m_gridHeight(30),
-    m_gridWidth(30),
-    m_gridLength(30)
+    m_gridHeight(60),
+    m_gridWidth(60),
+    m_gridLength(60)
 {
     m_searchRadius = 3 * m_gridSpacing;
     m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
@@ -45,17 +45,19 @@ void Reconstruction::surface_reconstruction(string input_filepath, string output
             loadParticles(in);
              //Calculate signed distances for all grid corners
             _gridCorners.clear();
-            _gridCorners.reserve(m_numOfGrids);
+            _gridCorners.insert(_gridCorners.begin(), m_numOfGrids, 0.0);
+            #pragma omp parallel for
             for (int x = 0; x < m_gridHeight; x++) {
                 for (int y = 0; y < m_gridWidth; y++) {
                     for (int z = 0; z < m_gridLength; z++) {
                         float toWrite;
+                        int idx = XYZtoGridID(Eigen::Vector3f(x, y, z));
                         if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
-                            _gridCorners.push_back(toWrite);
+                            _gridCorners[idx] = toWrite;
                         } else {
                             //arbitrary, just needs to be a positive value
                             //we're not estimating vertex normals with the SDF, we're doing it with topology so actually doesn't matter
-                            _gridCorners.push_back(100);
+                            _gridCorners[idx] = 100;
                         }
                     }
                 }
@@ -132,7 +134,8 @@ void Reconstruction::writeGrid(string output_filepath) {
     std::string dimensions =
             std::to_string(m_gridHeight) + ", " +
             std::to_string(m_gridWidth) + ", " +
-            std::to_string(m_gridLength);
+            std::to_string(m_gridLength) + ", " +
+            std::to_string(m_gridSpacing);
     fout << dimensions << std::endl;
 
     for (int x = 0; x < m_gridHeight; x++) {
