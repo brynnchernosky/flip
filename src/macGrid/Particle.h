@@ -14,6 +14,8 @@ struct Particle
 
   // Eigen::Vector3f picVelocity;
   // Eigen::Vector3f flipVelocity;
+  
+  Eigen::Vector3f oldPosition;
 };
 
 #endif // PARTICLE_H
