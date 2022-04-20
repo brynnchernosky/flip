@@ -386,6 +386,7 @@ void MacGrid::enforceDirichletBC()
 
 void MacGrid::classifyPseudoPressureGradient()
 {
+    //debug solver setup
   Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper,Eigen::IncompleteCholesky<float>> m_solver;
 
   Eigen::SparseMatrix<float> A; //coefficient matrix
@@ -427,7 +428,7 @@ void MacGrid::classifyPseudoPressureGradient()
 
   Eigen::Matrix3f scalarField;
   scalarField.resize(m_cells.size(),1);
-  // m_solver.compute(A);
+  //m_solver.compute(A);
   scalarField = m_solver.solve(b);
 
 #pragma omp parallel for
