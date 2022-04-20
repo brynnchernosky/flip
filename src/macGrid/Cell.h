@@ -14,6 +14,8 @@ struct Cell
   float uy;
   float uz;
   float p;
+
+  Vector3i cellIndex;
   int index;
 
   Material material = Material::Air;

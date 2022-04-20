@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 
   MacGrid grid;
   grid.init();
-  grid.updateGrid();
+  grid.setCellAndParticleRelationships();
   grid.printGrid();
 
   // ================== End to delete
