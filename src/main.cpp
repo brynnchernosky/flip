@@ -23,10 +23,10 @@ int main(int argc, char *argv[])
   MacGrid grid;
   grid.init();
   grid.createBufferZone();
+  grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
+  // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
   grid.printGrid();
-  grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1});
   grid.classifyPseudoPressureGradient();
-  cout << "After" << endl;
   grid.printGrid();
 
   return 0;
