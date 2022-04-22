@@ -12,6 +12,8 @@ typedef Eigen::Triplet<float> T;
 using namespace std;
 using namespace Eigen;
 
+const vector<Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+
 #define SANITY_CHECKS false
 #if SANITY_CHECKS
 inline void assertCellWithinBounds(const Vector3i cellCoordinates, const Vector3i cellCount)
@@ -87,7 +89,6 @@ void MacGrid::validate()
     const auto kv = m_cells.find(cellIndices);
     assert(kv != m_cells.end()); // is in a cell which exists,
     assert(kv->second == particle->cell); // is in the correct cell for its position, and
-    assert(kv->second->particles.find(particle) != kv->second->particles.end()); // is accounted for by that cell
   }
 }
 
@@ -100,8 +101,8 @@ void MacGrid::init()
   // Fluid
   meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
   assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
-  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
-  // addParticlesToCells(Material::Fluid);
+  // fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+  addParticlesToCells(Material::Fluid);
 }
 
 void MacGrid::simulate()
@@ -124,7 +125,7 @@ void MacGrid::simulate()
     // Enforce DBC
 
     // Given particle positions, update cell materials and neighbors
-    setCellAndParticleRelationships();
+    createBufferZone();
 
     // Given cells, neighbors, and cell velocities, update velocity by removing divergence
     classifyPseudoPressureGradient();
@@ -139,9 +140,8 @@ void MacGrid::simulate()
   }
 }
 
-// Updates the dynamic grid, assuming particle positions are correct (todo: set cells' and particles' relationships)
-const vector<Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-void MacGrid::setCellAndParticleRelationships()
+// Updates the dynamic grid, assuming particle positions are correct
+void MacGrid::createBufferZone()
 {
   // Set layer field of all cells to −1
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
@@ -190,9 +190,29 @@ void MacGrid::setCellAndParticleRelationships()
       }
     }
   }
+#pragma omp parallel for
+  for (unsigned int i = 0; i < m_particles.size(); i++) {
+      m_particles[i]->cell = m_cells[positionToIndices(m_particles[i]->position)];
+  }
 }
 
 // ================== Debugging
+
+void MacGrid::setGridCellVelocity(const Vector3i cellIndices, const Vector3f velocity1, const Vector3f velocity2)
+{
+  Cell *gridCell = m_cells[cellIndices];
+
+  assert(gridCell != nullptr);
+  assert(gridCell->material == Material::Fluid);
+
+  gridCell->ux = velocity1[0];
+  gridCell->uy = velocity1[0];
+  gridCell->uz = velocity1[0];
+
+  m_cells[cellIndices + Vector3i(-1, 0, 0)]->ux = velocity2[0];
+  m_cells[cellIndices + Vector3i(0, -1, 0)]->uy = velocity2[1];
+  m_cells[cellIndices + Vector3i(0, 0, -1)]->uz = velocity2[2];
+}
 
 // Debugging only: adds a particle to the system (does not set cells' and particles' relationships)
 void MacGrid::addParticle(Vector3f position, Vector3f velocity)
@@ -349,13 +369,18 @@ void MacGrid::addParticlesToCells(Material material) {
       for (int x = 0; x < strata; x++) {
         for (int y = 0; y < strata; y++) {
           for (int z = 0; z < strata; z++) {
-            float alpha = (static_cast<float>(random())/RAND_MAX);
-            float beta = (static_cast<float>(random())/RAND_MAX);
-            float gamma = (static_cast<float>(random())/RAND_MAX);
-            Vector3f position(m_cellWidth*i->first[0],m_cellWidth*i->first[1],m_cellWidth*i->first[2]);
-            position += Vector3f(x*m_cellWidth/strata,y*m_cellWidth/strata,z*m_cellWidth/strata);
+            float alpha = getRandomFloat();
+            float beta = getRandomFloat();
+            float gamma = getRandomFloat();
+            Vector3f position(m_cellWidth*i->first[0], m_cellWidth*i->first[1], m_cellWidth*i->first[2]);
+
+            position += m_cornerPosition;
+            position += Vector3f(x * m_cellWidth / strata, y * m_cellWidth / strata, z * m_cellWidth / strata);
             position += Vector3f(alpha*m_cellWidth/strata,beta*m_cellWidth/strata,gamma*m_cellWidth/strata);
             Particle * newParticle = new Particle{nullptr, position, Vector3f(0,0,0)};
+
+            assert(positionToIndices(position) == i->first);
+
             m_particles.push_back(newParticle);
           }
         }
@@ -404,21 +429,18 @@ void MacGrid::enforceDirichletBC()
 // Todo: code + test
 void MacGrid::classifyPseudoPressureGradient()
 {
-  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper,Eigen::IncompleteCholesky<float>> m_solver;
+  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper> m_solver;
 
-  Eigen::SparseMatrix<float> A; //coefficient matrix
-  A.resize(m_cells.size(),m_cells.size());
+  //,Eigen::IncompleteCholesky<float>
+  Eigen::SparseMatrix<float> A(m_cells.size(), m_cells.size()); //coefficient matrix
   std::vector<T> coefficients;
 
-  Eigen::Matrix3f b; //divergence of velocity field
-  b.resize(m_cells.size(),1);
+  VectorXf b(m_cells.size()); //divergence of velocity field
 
   int matrixIndexCounter = 0;
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material == Fluid) {
-      i->second->index = matrixIndexCounter;
-      matrixIndexCounter++;
-    }
+    i->second->index = matrixIndexCounter;
+    matrixIndexCounter++;
   }
 
 #pragma omp parallel for
@@ -438,25 +460,27 @@ void MacGrid::classifyPseudoPressureGradient()
           + ((i->second->uy)-(m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy))/(m_cellWidth*m_cellWidth)
           + ((i->second->uz)-(m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz))/(m_cellWidth*m_cellWidth);
       //second paper subtracts number of air cells, first paper does not
-      b(matrixIndexCounter,0)= divergence;
+      b(i->second->index,0) = divergence;
+    } else {
+      b(i->second->index,0) = 0;
     }
   }
   A.setFromTriplets(coefficients.begin(), coefficients.end());
 
-  Eigen::Matrix3f scalarField;
-  scalarField.resize(m_cells.size(),1);
+  VectorXf scalarField(m_cells.size());
   m_solver.compute(A);
   scalarField = m_solver.solve(b);
 
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
     if (i->second->material == Fluid) {
-        float xGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(1,0,0)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
-        float yGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(0,1,0)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
-        float zGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(0,0,1)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
-        i->second->ux -= xGradient;
-        i->second->uy -= yGradient;
-        i->second->uz -= zGradient;
+      assert(m_cells.find(i->first+Eigen::Vector3i(1,0,0)) != m_cells.end());
+      float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+      float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+      float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+      i->second->ux -= xGradient;
+      i->second->uy -= yGradient;
+      i->second->uz -= zGradient;
     }
   }
 }
@@ -647,7 +671,7 @@ void MacGrid::assignParticleCellMaterials(Material material, vector<Particle *> 
     Cell * cell = kv->second;
     if (cell->material != Material::Solid) {
       cell->material = material;
-      cell->layer = 0;
+      cell->layer = layerNumber;
     }
   }
 }

@@ -24,8 +24,6 @@ struct Cell
 
   Material material = Material::Air;
   int layer = -1;
-
-  std::set<Particle *> particles;
 };
 
 #endif // CELL_H
