@@ -12,6 +12,24 @@ Reconstruction::Reconstruction():
     m_gridWidth(30),
     m_gridLength(30)
 {
+    init();
+}
+
+Reconstruction::Reconstruction(float grid_spacing, int numOfParticles,
+               int gridHeight, int gridWidth, int gridLength):
+    m_gridSpacing(grid_spacing),
+    m_numOfParticles(numOfParticles),
+    m_gridHeight(gridHeight),
+    m_gridWidth(gridWidth),
+    m_gridLength(gridLength)
+
+{
+    init();
+}
+
+Reconstruction::~Reconstruction() {}
+
+void Reconstruction::init() {
     m_searchRadius = 3 * m_gridSpacing;
     m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
 
@@ -20,8 +38,6 @@ Reconstruction::Reconstruction():
     float length_offset = (m_gridLength / 2.f) * m_gridSpacing;
     m_center = Eigen::Vector3f(height_offset, width_offset, length_offset);
 }
-
-Reconstruction::~Reconstruction() {}
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath) {
     struct dirent *entry;

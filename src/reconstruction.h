@@ -11,8 +11,8 @@ class Reconstruction
 {
 public:
     Reconstruction();
-//    Reconstruction(int grid_spacing, int numOfParticles,
-//                   int gridHeight, int gridWidth, int gridLength);
+    Reconstruction(float grid_spacing, int numOfParticles,
+                   int gridHeight, int gridWidth, int gridLength);
     ~Reconstruction();
 
     /**
@@ -25,6 +25,7 @@ public:
 
 
 private:
+    void init();
     /**
      * @brief loadParticles - for a given input filepath
      * @param input_filepath - filepath to a text file where each line contains three comma

@@ -6,10 +6,8 @@ import open3d as o3d
 
 def parseArguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_filepath", type=str, default="test_sdf", 
-        help="Folder containing all point cloud files to convert to meshes")
-    parser.add_argument("--output_filepath", type=str, default="test_meshes",
-        help="Folder to write all converted triangle meshes to, names will be transfered over")
+    parser.add_argument("--folder", type=str, default="test", 
+        help="Parent folder to look in")
     parser.add_argument("--visualization", action="store_true", 
         help="If enabled creates intermediate visualization for each object")
     args = parser.parse_args()
@@ -41,17 +39,16 @@ def generate_mesh(fin):
     return vertices, triangles
 
 def main(args):
-    # Open folder
-
-    output_folder = args.output_filepath
+    output_folder = os.path.join(args.folder, "meshes")
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
-    directory = os.fsencode(args.input_filepath)
+    input_folder = os.path.join(args.folder, "sdfs")
+    directory = os.fsencode(input_folder)
     for file in os.listdir(directory):
         filename = os.fsdecode(file)
         if filename.endswith(".csv"):
-            input_sdf = os.path.join(args.input_filepath, filename)
+            input_sdf = os.path.join(input_folder, filename)
             print("Reading", input_sdf)
             fin = open(input_sdf, "r")
             vertices, triangles = generate_mesh(fin)
