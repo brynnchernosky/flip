@@ -62,7 +62,8 @@ class MacGrid
     void enforceDirichletBC();
     void classifyPseudoPressureGradient();
     void updateParticleVelocities();
-    void updateParticlePositions();
+    void updateParticlePositions(float deltaTime);
+    float calculateDeltaTime();
 
     // Miscellaneous Helpers
 
