@@ -44,7 +44,6 @@ MacGrid::MacGrid()
   m_cellWidth = settings.value(QString("cellWidth")).toFloat();
   m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
   m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
-  // cout << "m_maxAverageSurfaceParticlesPerArea = " << m_maxAverageSurfaceParticlesPerArea << endl;
 
   m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
                          settings.value(QString("cellCountY")).toInt(),
@@ -87,8 +86,8 @@ void MacGrid::validate()
   for (Particle * const particle : m_particles) {
     const Vector3i cellIndices = positionToIndices(particle->position);
     const auto kv = m_cells.find(cellIndices);
-    assert(kv != m_cells.end()); // is in a cell which exists,
-    assert(kv->second == particle->cell); // is in the correct cell for its position, and
+    assert(kv != m_cells.end()); // is in a cell which exists, and
+    assert(kv->second == particle->cell); // is in the correct cell for its position
   }
 }
 
@@ -209,9 +208,9 @@ void MacGrid::setGridCellVelocity(const Vector3i cellIndices, const Vector3f vel
   gridCell->uy = velocity1[0];
   gridCell->uz = velocity1[0];
 
-  m_cells[cellIndices + Vector3i(-1, 0, 0)]->ux = velocity2[0];
-  m_cells[cellIndices + Vector3i(0, -1, 0)]->uy = velocity2[1];
-  m_cells[cellIndices + Vector3i(0, 0, -1)]->uz = velocity2[2];
+  m_cells[cellIndices + Vector3i(1, 0, 0)]->ux = velocity2[0];
+  m_cells[cellIndices + Vector3i(0, 1, 0)]->uy = velocity2[1];
+  m_cells[cellIndices + Vector3i(0, 0, 1)]->uz = velocity2[2];
 }
 
 // Debugging only: adds a particle to the system (does not set cells' and particles' relationships)
