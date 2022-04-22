@@ -15,6 +15,10 @@ struct Cell
   float uz;
   float p;
 
+  float oldUX;
+  float oldUY;
+  float oldUZ;
+
   Eigen::Vector3i cellIndex;
   int index;
 

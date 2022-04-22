@@ -404,7 +404,6 @@ void MacGrid::enforceDirichletBC()
 // Todo: code + test
 void MacGrid::classifyPseudoPressureGradient()
 {
-    //debug solver setup
   Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper,Eigen::IncompleteCholesky<float>> m_solver;
 
   Eigen::SparseMatrix<float> A; //coefficient matrix
@@ -451,10 +450,10 @@ void MacGrid::classifyPseudoPressureGradient()
 
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material == Fluid) { //fix this section
-        float xGradient = scalarField(m_cells[i->first+Eigen::Vector3i(1,0,0)]->index,1); //-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-        float yGradient = scalarField(m_cells[i->first+Eigen::Vector3i(0,1,0)]->index,1); //-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-        float zGradient = scalarField(m_cells[i->first+Eigen::Vector3i(0,0,1)]->index,1); //-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+    if (i->second->material == Fluid) {
+        float xGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(1,0,0)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
+        float yGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(0,1,0)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
+        float zGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(0,0,1)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
         i->second->ux -= xGradient;
         i->second->uy -= yGradient;
         i->second->uz -= zGradient;
@@ -497,7 +496,7 @@ void MacGrid::updateParticleVelocities()
 //                picy = picy + weights[1]*m_cells[gridIdx+offset]->uy;
 //                picz = picz + weights[2]*m_cells[gridIdx+offset]->uz;
                 // Calculate FLIP particle velocity
-                flipx = flipx + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->ux - m_cells[gridIdx+offset]->oldux);
+                flipx = flipx + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->ux - m_cells[gridIdx+offset]->oldUX);
 //                flipy = flipy + weights[1]*(m_cells[gridIdx+offset]->ux - particle->velocity[1]);
 //                flipz = flipz + weights[2]*(m_cells[gridIdx+offset]->ux - particle->velocity[2]);
             }
@@ -521,7 +520,7 @@ void MacGrid::updateParticleVelocities()
                 // Calculate PIC particle velocity
                 picy = picy + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->uy;
                 // Calculate FLIP particle velocity
-                flipy = flipy + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->uy - m_cells[gridIdx+offset]->olduy);
+                flipy = flipy + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->uy - m_cells[gridIdx+offset]->oldUY);
             }
         }
     }
@@ -543,7 +542,7 @@ void MacGrid::updateParticleVelocities()
                 // Calculate PIC particle velocity
                 picz = picz + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->uz;
                 // Calculate FLIP particle velocity
-                flipz = flipz + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->uz - m_cells[gridIdx+offset]->olduz);
+                flipz = flipz + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->uz - m_cells[gridIdx+offset]->oldUZ);
             }
         }
     }
@@ -573,11 +572,11 @@ float MacGrid::calculateDeltaTime()
 }
 
 // Todo: move particles, use oldPosition, fix collisions
-void MacGrid::updateParticlePositions(float timestep)
+void MacGrid::updateParticlePositions(float deltaTime)
 {
   // Runge-Kutta 2 ODE solver
   updateParticleVelocities();
-  // 
+  //
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
