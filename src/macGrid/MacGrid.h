@@ -59,6 +59,7 @@ class MacGrid
     Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
     void applyExternalForces(float deltaTime);
+    void transferParticlesToGrid();
     void enforceDirichletBC();
     void classifyPseudoPressureGradient();
     void updateParticleVelocities();

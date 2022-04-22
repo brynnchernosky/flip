@@ -461,6 +461,10 @@ void MacGrid::classifyPseudoPressureGradient()
   }
 }
 
+void MacGrid::transferParticlesToGrid(){
+
+}
+
 // Given grid velocities and particle positions, update particle velocities
 // - Given new and old grid velocities produce new FLIP velocities per particle
 // - Given new grid velocities produce new PIC velocities per particle
