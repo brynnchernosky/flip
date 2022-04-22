@@ -12,6 +12,8 @@ typedef Eigen::Triplet<float> T;
 using namespace std;
 using namespace Eigen;
 
+const vector<Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+
 #define SANITY_CHECKS false
 #if SANITY_CHECKS
 inline void assertCellWithinBounds(const Vector3i cellCoordinates, const Vector3i cellCount)
@@ -87,7 +89,6 @@ void MacGrid::validate()
     const auto kv = m_cells.find(cellIndices);
     assert(kv != m_cells.end()); // is in a cell which exists,
     assert(kv->second == particle->cell); // is in the correct cell for its position, and
-    assert(kv->second->particles.find(particle) != kv->second->particles.end()); // is accounted for by that cell
   }
 }
 
@@ -124,7 +125,7 @@ void MacGrid::simulate()
     // Enforce DBC
 
     // Given particle positions, update cell materials and neighbors
-    setCellAndParticleRelationships();
+    createBufferZoneAndParticleCellRelationship();
 
     // Given cells, neighbors, and cell velocities, update velocity by removing divergence
     classifyPseudoPressureGradient();
@@ -139,9 +140,8 @@ void MacGrid::simulate()
   }
 }
 
-// Updates the dynamic grid, assuming particle positions are correct (todo: set cells' and particles' relationships)
-const vector<Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-void MacGrid::setCellAndParticleRelationships()
+// Updates the dynamic grid, assuming particle positions are correct
+void MacGrid::createBufferZoneAndParticleCellRelationship()
 {
   // Set layer field of all cells to −1
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
@@ -189,6 +189,10 @@ void MacGrid::setCellAndParticleRelationships()
         }
       }
     }
+  }
+#pragma omp parallel for
+  for (unsigned int i = 0; i < m_particles.size(); i++) {
+      m_particles[i]->cell = m_cells[positionToIndices(m_particles[i]->position)];
   }
 }
 

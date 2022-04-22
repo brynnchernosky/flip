@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
   MacGrid grid;
   grid.init();
-  grid.setCellAndParticleRelationships();
+  grid.createBufferZoneAndParticleCellRelationship();
   grid.printGrid();
 
   // ================== End to delete

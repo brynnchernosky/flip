@@ -22,7 +22,7 @@ class MacGrid
     void validate();
     void init();
     void simulate();
-    void setCellAndParticleRelationships();
+    void createBufferZoneAndParticleCellRelationship();
 
     // Debugging
     void addParticle(Eigen::Vector3f position, Eigen::Vector3f velocity);
