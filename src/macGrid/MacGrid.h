@@ -22,7 +22,7 @@ class MacGrid
     void validate();
     void init();
     void simulate();
-    void updateGrid();
+    void setCellAndParticleRelationships();
 
     // Debugging
     void addParticle(Eigen::Vector3f position, Eigen::Vector3f velocity);
@@ -62,7 +62,8 @@ class MacGrid
     void enforceDirichletBC();
     void classifyPseudoPressureGradient();
     void updateParticleVelocities();
-    void updateParticlePositions();
+    void updateParticlePositions(float deltaTime);
+    float calculateDeltaTime();
 
     // Miscellaneous Helpers
 

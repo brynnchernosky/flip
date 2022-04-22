@@ -20,10 +20,10 @@ int main(int argc, char *argv[])
 {
   // ================== To delete
 
-//  MacGrid grid;
-//  grid.init();
-//  grid.updateGrid();
-//  grid.printGrid();
+  MacGrid grid;
+  grid.init();
+  grid.setCellAndParticleRelationships();
+  grid.printGrid();
 
   // ================== End to delete
 
