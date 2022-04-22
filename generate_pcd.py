@@ -1,4 +1,6 @@
-import argparse 
+import argparse
+from ast import parse
+from functools import total_ordering 
 import numpy as np
 import os
 import open3d as o3d
@@ -24,6 +26,8 @@ def parseArguments():
     parser.add_argument("--cone_points", type=int, default=50000)
     parser.add_argument("--cone_radius", type=int, default=8)
     parser.add_argument("--cone_height", type=int, default=16)
+
+    parser.add_argument("--everything", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -87,6 +91,24 @@ def main(args):
     dataset_location = args.output_filepath
     if not os.path.exists(dataset_location):
         os.mkdir(dataset_location)
+    
+    if args.everything:
+        total_points = args.sphere_points + args.cylinder_points + args.cone_points
+        print("Generating all three objects with", total_points, "points")
+        filepath = os.path.join(dataset_location, "three.csv")
+        fout = open(filepath, "w")
+        sphere_points = sphere(args.sphere_points, args.sphere_radius)
+        cylinder_points = cylinder(args.cylinder_points, args.cylinder_radius, args.cylinder_height)
+        cylinder_points += np.array([20, 0, 0])
+        cone_points = cone(args.cone_points, args.cone_radius, args.cone_height)
+        cone_points += np.array([-20, 0, 0])
+        points = np.append(sphere_points, cylinder_points, axis = 0)
+        points = np.append(points, cone_points, axis = 0)
+        write_points(fout, points)
+        if args.visualization:
+            visualize_points(points)
+        fout.close()
+        print("Finished writing three.csv")
     
     if args.sphere:
         print("Generating sphere with", args.sphere_points, "points")
