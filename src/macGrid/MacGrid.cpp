@@ -140,7 +140,7 @@ void MacGrid::simulate()
   }
 }
 
-// Updates the dynamic grid, assuming particle positions are correct
+// Sets up fluid cells and a buffer zone around them, based on the particles' positions
 void MacGrid::createBufferZone()
 {
   // Set layer field of all cells to −1
@@ -196,6 +196,7 @@ void MacGrid::createBufferZone()
 
 // ================== Debugging
 
+// Debugging only: sets the 6 adjacent velocity values for a grid cell with the given indices
 void MacGrid::setGridCellVelocity(const Vector3i cellIndices, const Vector3f velocity1, const Vector3f velocity2)
 {
   Cell *gridCell = m_cells[cellIndices];
@@ -234,11 +235,13 @@ void MacGrid::printGrid() const
 
 // ================== Initialization Helpers
 
+// Helper: produces a random float in the range [0, 1]
 inline float getRandomFloat()
 {
   return static_cast <float> (arc4random()) / static_cast <float> (UINT32_MAX);
 }
 
+// Helper: gets a uniformly random position on a given triangle defined by a point and two vectors
 const Vector3f getRandomPositionOnTriangle(const Vector3f &a, const Vector3f &ab, const Vector3f &ac)
 {
   float R = getRandomFloat();
@@ -387,6 +390,19 @@ void MacGrid::addParticlesToCells(const Material material) {
 
 // ================== Simulation Helpers
 
+// Todo
+float MacGrid::calculateDeltaTime()
+{
+  float maxV = 0;
+#pragma omp parallel for
+  for (unsigned int i = 0; i < m_particles.size(); ++i) {
+      Particle * particle = m_particles[i];
+      if(m_particles[i]->velocity.norm()>=maxV) {maxV = m_particles[i]->velocity.norm();}
+  }
+  return m_cellWidth / maxV;
+
+}
+
 // Applies external forces to the velocity field
 void MacGrid::applyExternalForces(const float deltaTime)
 {
@@ -422,7 +438,7 @@ void MacGrid::enforceDirichletBC()
   }
 }
 
-// Removes the diverging component of the velocity field
+// Sets the diverging component of the velocity field to zero
 void MacGrid::classifyPseudoPressureGradient()
 {
   Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper> m_solver;
@@ -481,14 +497,16 @@ void MacGrid::classifyPseudoPressureGradient()
   }
 }
 
-void MacGrid::transferParticlesToGrid(){
-
+// Sets the velocity field based on the particles' positions and velocities
+void MacGrid::transferParticlesToGrid()
+{
+  // Todo
 }
 
-// Given grid velocities and particle positions, update particle velocities
-// - Given new and old grid velocities produce new FLIP velocities per particle
-// - Given new grid velocities produce new PIC velocities per particle
-// - Interpolate PIC and FLIP velocities to get new particle velocities
+// Sets particle velocities based on their positions and the velocity field
+// Step 1: Given new and old grid velocities produce new FLIP velocities per particle
+// Step 2: Given new grid velocities produce new PIC velocities per particle
+// Step 3: Interpolate PIC and FLIP velocities to get new particle velocities
 void MacGrid::updateParticleVelocities()
 {
   // For every particle
@@ -582,19 +600,6 @@ void MacGrid::updateParticleVelocities()
   }
 }
 
-// Todo: make this based on velocity filed (cells) not particles
-float MacGrid::calculateDeltaTime()
-{
-  float maxV = 0;
-#pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-      Particle * particle = m_particles[i];
-      if(m_particles[i]->velocity.norm()>=maxV) {maxV = m_particles[i]->velocity.norm();}
-  }
-  return m_cellWidth / maxV;
-
-}
-
 // Todo: move particles, use oldPosition, fix collisions
 void MacGrid::updateParticlePositions(const float deltaTime)
 {
@@ -632,9 +637,33 @@ void MacGrid::updateParticlePositions(const float deltaTime)
   }
 }
 
+// ================== Positional Helpers
+
+// Given a position, returns the indices of the cell which would contain it
+const Vector3i MacGrid::positionToIndices(const Vector3f &position) const
+{
+  const Vector3f regularizedPosition = (position - m_cornerPosition) / m_cellWidth;
+
+  return Vector3i(floor(regularizedPosition[0]),
+      floor(regularizedPosition[1]),
+      floor(regularizedPosition[2]));
+}
+
+// Given a cell's indices, returns the position of its lowest x, y, z corner
+const Vector3f MacGrid::indicesToBasePosition(const Vector3i &cellIndices) const
+{
+  return cellIndices.cast<float>() * m_cellWidth + m_cornerPosition;
+}
+
+// Given a cell's indices, returns the position of its center
+const Vector3f MacGrid::indicesToCenterPosition(const Vector3i &cellIndices) const
+{
+  return (cellIndices.cast<float>() + Vector3f::Ones() * 0.5f) * m_cellWidth + m_cornerPosition;
+}
+
 // ================== Miscellaneous Helpers
 
-// Given a material and a vector of particles, set all cells containing those particles to that material
+// Given a material and a vector of particles, sets all cells containing those particles to that material
 void MacGrid::assignParticleCellMaterials(const Material material, const vector<Particle *> &particles)
 {
   const int layerNumber = material == Material::Fluid ? 0 : 100;
@@ -672,23 +701,7 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
   }
 }
 
-// Given a position, return the indices of the cell which would contain it
-const Vector3i MacGrid::positionToIndices(const Vector3f &position) const
-{
-  const Vector3f regularizedPosition = (position - m_cornerPosition) / m_cellWidth;
-
-  return Vector3i(floor(regularizedPosition[0]),
-      floor(regularizedPosition[1]),
-      floor(regularizedPosition[2]));
-}
-
-// Given a cell's indices, returns the position of its lowest x, y, z corner
-const Vector3f MacGrid::indicesToBasePosition(const Vector3i &cellIndices) const
-{
-  return cellIndices.cast<float>() * m_cellWidth + m_cornerPosition;
-}
-
-// Given a cell's indices, return whether it falls within the simulation grid's bounds
+// Given a cell's indices, returns whether it falls within the simulation grid's bounds
 bool MacGrid::withinBounds(const Vector3i &cellIndices) const
 {
   return 0 <= cellIndices[0] && cellIndices[0] < m_cellCount[0] &&

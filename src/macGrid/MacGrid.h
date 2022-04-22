@@ -65,19 +65,22 @@ class MacGrid
     Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
 
-    void applyExternalForces(float deltaTime);
-    void transferParticlesToGrid();
+    float calculateDeltaTime();
+    void applyExternalForces(const float deltaTime);
     void enforceDirichletBC();
+    void transferParticlesToGrid();
     void updateParticleVelocities();
     void updateParticlePositions(const float deltaTime);
-    float calculateDeltaTime();
+
+    // Positional Helpers
+
+    const Eigen::Vector3i positionToIndices      (const Eigen::Vector3f &position)    const;
+    const Eigen::Vector3f indicesToBasePosition  (const Eigen::Vector3i &cellIndices) const;
+    const Eigen::Vector3f indicesToCenterPosition(const Eigen::Vector3i &cellIndices) const;
 
     // Miscellaneous Helpers
 
     void assignParticleCellMaterials(const Material material, const std::vector<Particle *> &particles);
-
-    const Eigen::Vector3i positionToIndices(const Eigen::Vector3f &position) const;
-    const Eigen::Vector3f indicesToBasePosition(const Eigen::Vector3i &cellIndices) const;
 
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };
