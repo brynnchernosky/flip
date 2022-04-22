@@ -429,21 +429,18 @@ void MacGrid::enforceDirichletBC()
 // Todo: code + test
 void MacGrid::classifyPseudoPressureGradient()
 {
-  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper,Eigen::IncompleteCholesky<float>> m_solver;
+  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper> m_solver;
 
-  Eigen::SparseMatrix<float> A; //coefficient matrix
-  A.resize(m_cells.size(), m_cells.size());
+  //,Eigen::IncompleteCholesky<float>
+  Eigen::SparseMatrix<float> A(m_cells.size(), m_cells.size()); //coefficient matrix
   std::vector<T> coefficients;
 
-  Eigen::Matrix3f b; //divergence of velocity field
-  b.resize(m_cells.size(),1);
+  VectorXf b(m_cells.size()); //divergence of velocity field
 
   int matrixIndexCounter = 0;
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material == Fluid) {
-      i->second->index = matrixIndexCounter;
-      matrixIndexCounter++;
-    }
+    i->second->index = matrixIndexCounter;
+    matrixIndexCounter++;
   }
 
 #pragma omp parallel for
@@ -463,22 +460,24 @@ void MacGrid::classifyPseudoPressureGradient()
           + ((i->second->uy)-(m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy))/(m_cellWidth*m_cellWidth)
           + ((i->second->uz)-(m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz))/(m_cellWidth*m_cellWidth);
       //second paper subtracts number of air cells, first paper does not
-      b(matrixIndexCounter,0)= divergence;
+      b(i->second->index,0) = divergence;
+    } else {
+      b(i->second->index,0) = 0;
     }
   }
   A.setFromTriplets(coefficients.begin(), coefficients.end());
 
-  Eigen::Matrix3f scalarField;
-  scalarField.resize(m_cells.size(),1);
+  VectorXf scalarField(m_cells.size());
   m_solver.compute(A);
   scalarField = m_solver.solve(b);
 
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
     if (i->second->material == Fluid) {
-      float xGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(1,0,0)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
-      float yGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(0,1,0)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
-      float zGradient = (scalarField(m_cells[i->first+Eigen::Vector3i(0,0,1)]->index,1)-scalarField(i->second->index,1))/(m_cellWidth*m_cellWidth);
+      assert(m_cells.find(i->first+Eigen::Vector3i(1,0,0)) != m_cells.end());
+      float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+      float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+      float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
       i->second->ux -= xGradient;
       i->second->uy -= yGradient;
       i->second->uz -= zGradient;
