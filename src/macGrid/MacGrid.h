@@ -22,11 +22,15 @@ class MacGrid
     void validate();
     void init();
     void simulate();
-    void createBufferZoneAndParticleCellRelationship();
+    void createBufferZone();
 
     // Debugging
+    void setGridCellVelocity(Eigen::Vector3i cellIndices, Eigen::Vector3f velocity1, Eigen::Vector3f velocity2);
     void addParticle(Eigen::Vector3f position, Eigen::Vector3f velocity);
     void printGrid() const;
+
+    // Current unit-testing target
+    void classifyPseudoPressureGradient();
 
   private:
 
@@ -60,7 +64,6 @@ class MacGrid
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
     void applyExternalForces(float deltaTime);
     void enforceDirichletBC();
-    void classifyPseudoPressureGradient();
     void updateParticleVelocities();
     void updateParticlePositions(float deltaTime);
     float calculateDeltaTime();

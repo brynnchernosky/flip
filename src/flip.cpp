@@ -19,21 +19,7 @@ Flip::~Flip() {}
 
 // ================== Initializer
 
-void Flip::init()
-{
-  vector<Vector3f> vertices;
-  vector<Vector3f> normals;
-  vector<Vector3i> tets;
-
-  // Load mesh (panic if failed)
-  if (!MeshLoader::loadTriMesh("../../../../flip/meshes/teapot.obj", vertices, normals, tets)) {
-    cout << "Flip::init() failed to load mesh. Exiting!" << endl;
-    exit(1);
-  }
-
-  // Initialize shape
-  m_shape.init(vertices, tets);
-}
+void Flip::init() {}
 
 // ================== Intermediate Renderer (Optional Task)
 

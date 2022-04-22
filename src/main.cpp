@@ -22,8 +22,14 @@ int main(int argc, char *argv[])
 
   MacGrid grid;
   grid.init();
-  grid.createBufferZoneAndParticleCellRelationship();
+  grid.createBufferZone();
   grid.printGrid();
+  grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1});
+  grid.classifyPseudoPressureGradient();
+  cout << "After" << endl;
+  grid.printGrid();
+
+  return 0;
 
   // ================== End to delete
 
@@ -48,7 +54,7 @@ int main(int argc, char *argv[])
   const string method = args[0].toStdString();
   const string folder = args[1].toStdString();
 
-  //Load the .ini exists
+  // Load the .ini if it exists
   const QString ini_filepath = QString::fromStdString(folder + "/config.ini");
   QFileInfo ini_file(ini_filepath);
   if (!(ini_file.exists() && ini_file.isFile())) {
@@ -58,7 +64,7 @@ int main(int argc, char *argv[])
   }
   QSettings settings(ini_filepath, QSettings::IniFormat);
 
-  //Make the directories if they do not exist
+  // Make the directories if they do not exist
 
   // Start timer
   const auto startTime = chrono::high_resolution_clock::now();
