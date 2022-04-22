@@ -130,8 +130,7 @@ void MacGrid::simulate()
     classifyPseudoPressureGradient();
 
     // Given old and new grid velocities, updates particle positions using RK2
-    // updateParticlePositions(deltaTime);
-    updateParticlePositions();
+    updateParticlePositions(deltaTime);
 
     time += deltaTime;
 
@@ -405,6 +404,7 @@ void MacGrid::enforceDirichletBC()
 // Todo: code + test
 void MacGrid::classifyPseudoPressureGradient()
 {
+    //debug solver setup
   Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper,Eigen::IncompleteCholesky<float>> m_solver;
 
   Eigen::SparseMatrix<float> A; //coefficient matrix
@@ -446,18 +446,18 @@ void MacGrid::classifyPseudoPressureGradient()
 
   Eigen::Matrix3f scalarField;
   scalarField.resize(m_cells.size(),1);
-  // m_solver.compute(A);
+  m_solver.compute(A);
   scalarField = m_solver.solve(b);
 
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material == Fluid) {
-      //          float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-      //          float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-      //          float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-      //          i->second->ux -= xGradient;
-      //          i->second->uy -= yGradient;
-      //          i->second->uz -= zGradient;
+    if (i->second->material == Fluid) { //fix this section
+        float xGradient = scalarField(m_cells[i->first+Eigen::Vector3i(1,0,0)]->index,1); //-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+        float yGradient = scalarField(m_cells[i->first+Eigen::Vector3i(0,1,0)]->index,1); //-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+        float zGradient = scalarField(m_cells[i->first+Eigen::Vector3i(0,0,1)]->index,1); //-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+        i->second->ux -= xGradient;
+        i->second->uy -= yGradient;
+        i->second->uz -= zGradient;
     }
   }
 }
@@ -562,7 +562,6 @@ void MacGrid::updateParticleVelocities()
 // Todo: make this based on velocity filed (cells) not particles
 float MacGrid::calculateDeltaTime()
 {
-  float timestep;
   float maxV = 0;
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
@@ -574,7 +573,7 @@ float MacGrid::calculateDeltaTime()
 }
 
 // Todo: move particles, use oldPosition, fix collisions
-void MacGrid::updateParticlePositions(float deltaTime)
+void MacGrid::updateParticlePositions(float timestep)
 {
   // Runge-Kutta 2 ODE solver
   updateParticleVelocities();
