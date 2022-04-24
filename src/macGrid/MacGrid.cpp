@@ -486,7 +486,55 @@ void MacGrid::classifyPseudoPressureGradient()
 }
 
 void MacGrid::transferParticlesToGrid(){
-
+    //reset grid particle numbers an grid average velocites
+#pragma omp parallel for
+    for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+        Cell * cell = i->second;
+        cell->avgParticleV = Vector3f(0,0,0);
+        cell->particleNums = 0;
+    }
+    //accumulatively calculate the particle numbers and velocities
+    for (unsigned int i = 0; i < m_particles.size(); ++i) {
+        Particle * particle = m_particles[i];
+        Vector3f offset = Vector3f(0.5, 0.5, 0.5);
+        Vector3i belongingCell = positionToIndices(particle->position+offset);
+        m_cells[belongingCell]->avgParticleV = m_cells[belongingCell]->avgParticleV + particle->velocity;
+        m_cells[belongingCell]->particleNums = m_cells[belongingCell]->particleNums + 1;
+    }
+    //average velocities
+#pragma omp parallel for
+    for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+        Cell * cell = i->second;
+        if(cell->particleNums > 0){
+            cell->avgParticleV = cell->avgParticleV/cell->particleNums;
+        }
+    }
+    //TODO:fill cell->cellIndex somewhere
+    //do trilinear interpolation
+#pragma omp parallel for
+    for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+        Cell * cell = i->second;
+        if (cell->material == Material::Air) continue;
+        if (cell->material == Material::Solid) continue;
+        Vector3i offset;
+        Vector3f gridv;
+        //transfer particle velocity to grid
+        for(int m = 0; m<2; m++){
+            for(int n = 0; n<2; n++){
+                for(int l = 0; l<2; l++){
+                    offset = Vector3i(m,n,l);
+                    gridv = gridv + m_cells[cell->cellIndex + offset]->avgParticleV;
+                }
+            }
+        }
+        cell->ux = gridv[0];
+        cell->uy = gridv[1];
+        cell->uz = gridv[2];
+        //deep track of the old grid velocity
+        cell->oldUX = cell->ux;
+        cell->oldUY = cell->uy;
+        cell->oldUZ = cell->uz;
+    }
 }
 
 // Given grid velocities and particle positions, update particle velocities
@@ -521,12 +569,8 @@ void MacGrid::updateParticleVelocities()
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picx = picx + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->ux;
-//                picy = picy + weights[1]*m_cells[gridIdx+offset]->uy;
-//                picz = picz + weights[2]*m_cells[gridIdx+offset]->uz;
                 // Calculate FLIP particle velocity
                 flipx = flipx + weights[0]*weights[2]*weights[3]*(m_cells[gridIdx+offset]->ux - m_cells[gridIdx+offset]->oldUX);
-//                flipy = flipy + weights[1]*(m_cells[gridIdx+offset]->ux - particle->velocity[1]);
-//                flipz = flipz + weights[2]*(m_cells[gridIdx+offset]->ux - particle->velocity[2]);
             }
         }
     }
@@ -575,9 +619,6 @@ void MacGrid::updateParticleVelocities()
         }
     }
 
-
-
-
     Vector3f pic = Vector3f(picx, picy, picz);
     Vector3f flip = Vector3f(flipx, flipy, flipz);
 
@@ -611,7 +652,7 @@ void MacGrid::updateParticlePositions(float deltaTime)
     particle->oldPosition = particle->position;
     //move particles half step
     particle->position = particle->position + particle->velocity*deltaTime*0.5;
-    // TODO: fix problem of particle penetrating the solid cell
+    // TODO: fix problem of particle penetrating the solid cell(test and may be correct this)
     Vector3i gridIdx = positionToIndices(particle->position);
     if(m_cells[gridIdx]->material == Material::Solid){
           Vector3i oldIdx = positionToIndices(particle->oldPosition);
@@ -623,7 +664,6 @@ void MacGrid::updateParticlePositions(float deltaTime)
                   offset[j] = 0;
               }
           }
-
           particle->position = Vector3f(gridIdx[0] + offset[0] +0.5,gridIdx[1] + offset[1] + 0.5,gridIdx[2] + offset[2] +0.5)*m_cellWidth+m_cornerPosition;
       }
   }
