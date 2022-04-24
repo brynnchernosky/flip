@@ -64,10 +64,7 @@ int main(int argc, char *argv[])
   }
   QSettings settings(ini_filepath, QSettings::IniFormat);
 
-<<<<<<< HEAD
   // Make the directories if they do not exist
-=======
->>>>>>> bd530ad2b754fd7513f57a5d8a3618d859614987
   // Start timer
   const auto startTime = chrono::high_resolution_clock::now();
 
