@@ -64,8 +64,11 @@ int main(int argc, char *argv[])
   }
   QSettings settings(ini_filepath, QSettings::IniFormat);
 
+<<<<<<< HEAD
+=======
   // Make the directories if they do not exist
 
+>>>>>>> 3e2a1ae4f5eda38a664cefe8d9e8014de88ee3b2
   // Start timer
   const auto startTime = chrono::high_resolution_clock::now();
 
@@ -92,6 +95,7 @@ int main(int argc, char *argv[])
     // Flip flip;
     // flip.init();
     // flip.simulate();
+
     cout << "Error: simulate not yet implemented!" << endl;
   }
   else if (method == "particle-to-mesh")
@@ -111,21 +115,15 @@ int main(int argc, char *argv[])
     const string input_filepath = particle_filepath.toStdString();
     const string output_filepath = sdf_filepath.toStdString();
 
-    settings.beginGroup("/Conversion");
-    float gridSpacing = settings.value("gridSpacing").toFloat();
-    int numOfParticles = settings.value("numOfParticles").toInt();
-    int gridHeight = settings.value("gridHeight").toInt();
-    int gridWidth = settings.value("gridWidth").toInt();
-    int gridLength = settings.value("gridLength").toInt();
-    settings.endGroup();
-
-    Reconstruction converter(gridSpacing, numOfParticles, gridHeight, gridWidth, gridLength);
+    Reconstruction converter(settings);
     converter.surface_reconstruction(input_filepath, output_filepath);
   }
   else
   {
     cout << "Error: unknown method!" << endl;
   }
+
+  std::cout << "Here near exit" << std::endl;
 
   // End timer
   const auto endTime = chrono::high_resolution_clock::now();

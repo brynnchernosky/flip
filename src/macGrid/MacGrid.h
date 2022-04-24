@@ -7,6 +7,8 @@
 #include <Eigen/SparseCholesky>
 #include <vector>
 
+#include <QSettings>
+
 #include "HashMap.h"
 #include "Cell.h"
 #include "Particle.h"
@@ -16,12 +18,13 @@ class MacGrid
 {
   public:
 
-    MacGrid();
+    MacGrid(QSettings &settings, std::string folder);
     ~MacGrid();
 
     void validate();
     void init();
-    void simulate();
+    void simulate(std::string output_folder);
+    void setCellAndParticleRelationships();
     void createBufferZone();
 
     // Debugging

@@ -1,6 +1,7 @@
 #include <iostream>
-#include <QSettings>
+#include <fstream>
 #include <QFile>
+#include <QtConcurrent>
 #include <random>
 
 #include "src/macGrid/MacGrid.h"
@@ -30,8 +31,7 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 }
 #endif
 
-MacGrid::MacGrid()
-{
+MacGrid::MacGrid(QSettings &settings, std::string folder) {
 #if SANITY_CHECKS
   assert(0 < cellWidth);
   assert(0 < cellCount[0]);
@@ -39,33 +39,34 @@ MacGrid::MacGrid()
   assert(0 < cellCount[2]);
 #endif
 
-  QSettings settings("src/config.ini", QSettings::IniFormat);
+    settings.beginGroup("/Simulation");
+    m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+    m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
+    m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
 
-  m_cellWidth = settings.value(QString("cellWidth")).toFloat();
-  m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
-  m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
+    m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
+                           settings.value(QString("cellCountY")).toInt(),
+                           settings.value(QString("cellCountZ")).toInt());
 
-  m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
-                         settings.value(QString("cellCountY")).toInt(),
-                         settings.value(QString("cellCountZ")).toInt());
+    m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
+                                settings.value(QString("cornerPositionY")).toFloat(),
+                                settings.value(QString("cornerPositionZ")).toFloat());
 
-  m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
-                              settings.value(QString("cornerPositionY")).toFloat(),
-                              settings.value(QString("cornerPositionZ")).toFloat());
+    m_solidMeshFilepath = folder + "/solid.obj";
+    m_fluidMeshFilepath = folder + "/fluid.obj";
 
-  m_solidMeshFilepath = settings.value(QString("solidMeshFilepath")).toString().toStdString();
-  m_fluidMeshFilepath = settings.value(QString("fluidMeshFilepath")).toString().toStdString();
-  m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
-                                     settings.value(QString("fluidInternalPositionY")).toFloat(),
-                                     settings.value(QString("fluidInternalPositionZ")).toFloat());
+    m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
+                                       settings.value(QString("fluidInternalPositionY")).toFloat(),
+                                       settings.value(QString("fluidInternalPositionZ")).toFloat());
 
-  m_simulationTime = settings.value(QString("simulationTime")).toInt();
+    m_simulationTime = settings.value(QString("simulationTime")).toInt();
 
-  m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
-                             settings.value(QString("gravityY")).toFloat(),
-                             settings.value(QString("gravityZ")).toFloat());
+    m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
+                               settings.value(QString("gravityY")).toFloat(),
+                               settings.value(QString("gravityZ")).toFloat());
 
-  m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
+    m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
+    settings.endGroup();
 }
 
 MacGrid::~MacGrid()
@@ -104,14 +105,33 @@ void MacGrid::init()
   addParticlesToCells(Material::Fluid);
 }
 
-void MacGrid::simulate()
+extern void saveParticles(std::string filepath, std::vector<Eigen::Vector3f> particle_positions) {
+    fstream fout;
+    fout.open(filepath, ios::out);
+    if(!fout.good()) {
+        std::cerr << filepath << " could not be opened" << std::endl;
+        return;
+    }
+
+    for (Eigen::Vector3f particle : particle_positions) {
+        std::string toWrite =
+                std::to_string(particle[0]) + ", " +
+                std::to_string(particle[1]) + ", " +
+                std::to_string(particle[2]);
+        fout << toWrite << std::endl;
+    }
+
+    fout.close();
+}
+
+void MacGrid::simulate(std::string output_folder)
 {
   float time = 0.0f;
 
   float framePeriod = 0.166666666f;
 
+  std::vector<QFuture<void>> futures;
   while (time < m_simulationTime) {
-
     // Compute deltaTime or something
     // const float deltaTime = calculateDeltaTime();
     const float deltaTime = 1.0f;
@@ -136,7 +156,21 @@ void MacGrid::simulate()
     time += deltaTime;
 
     // Todo: if some conditional is met spit out the particles
-    // saveParticles()
+    if (true) {
+        std::string output_filepath = output_folder + "/" + std::to_string(time) + ".csv";
+        std::vector<Eigen::Vector3f> particles;
+        for (Particle * particle : m_particles) {
+            Eigen::Vector3f position = particle->position;
+            particles.emplace_back(position[0], position[1], position[2]);
+        }
+        QFuture<void> future = QtConcurrent::run(saveParticles, output_filepath, particles);
+        futures.push_back(future);
+    }
+  }
+
+  std::cout << "Waiting for threads  to finish writing particles" << std::endl;
+  for (QFuture<void> future: futures) {
+      future.waitForFinished();
   }
 }
 
@@ -647,7 +681,7 @@ void MacGrid::updateParticlePositions(const float deltaTime)
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
-    particle->position = particle->oldPosition + particle->velocity*deltaTime;
+//    particle->position = particle->oldPosition + particle->velocity*deltaTime;
   }
 }
 
