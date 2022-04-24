@@ -68,6 +68,7 @@ class MacGrid
     void updateParticleVelocities();
     void updateParticlePositions(float deltaTime);
     float calculateDeltaTime();
+    void assignCellIdx3i();
 
     // Miscellaneous Helpers
 
