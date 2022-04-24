@@ -470,7 +470,7 @@ float MacGrid::calculateDeltaTime()
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
       Particle * particle = m_particles[i];
-      if(m_particles[i]->velocity.norm()>=maxV) {maxV = m_particles[i]->velocity.norm();}
+      if (m_particles[i]->velocity.norm()>=maxV) {maxV = m_particles[i]->velocity.norm();}
   }
   return m_cellWidth / maxV;
 
@@ -613,12 +613,12 @@ void MacGrid::updateParticleVelocities()
     idx[2] = floor(particlePos[2]);//n
     Vector3f weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
-    for(int l = 0; l < 2; l++){
-        for(int m = 0; m < 2; m++){
-            for(int n = 0; n < 2; n++){
-                if (l == 1){weights[0] = particlePos[0] - idx[0];}
-                if (m == 1){weights[1] = particlePos[1] - idx[1];}
-                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+    for (int l = 0; l < 2; l++) {
+        for (int m = 0; m < 2; m++) {
+            for (int n = 0; n < 2; n++) {
+                if (l == 1) {weights[0] = particlePos[0] - idx[0];}
+                if (m == 1) {weights[1] = particlePos[1] - idx[1];}
+                if (n == 1) {weights[2] = particlePos[2] - idx[2];}
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picx = picx + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->ux;
@@ -639,12 +639,12 @@ void MacGrid::updateParticleVelocities()
 
     weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
-    for(int l = 0; l < 2; l++){
-        for(int m = 0; m < 2; m++){
-            for(int n = 0; n < 2; n++){
-                if (l == 1){weights[0] = particlePos[0] - idx[0];}
-                if (m == 1){weights[1] = particlePos[1] - idx[1];}
-                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+    for (int l = 0; l < 2; l++) {
+        for (int m = 0; m < 2; m++) {
+            for (int n = 0; n < 2; n++) {
+                if (l == 1) {weights[0] = particlePos[0] - idx[0];}
+                if (m == 1) {weights[1] = particlePos[1] - idx[1];}
+                if (n == 1) {weights[2] = particlePos[2] - idx[2];}
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picy = picy + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->uy;
@@ -661,12 +661,12 @@ void MacGrid::updateParticleVelocities()
 
     weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
-    for(int l = 0; l < 2; l++){
-        for(int m = 0; m < 2; m++){
-            for(int n = 0; n < 2; n++){
-                if (l == 1){weights[0] = particlePos[0] - idx[0];}
-                if (m == 1){weights[1] = particlePos[1] - idx[1];}
-                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+    for (int l = 0; l < 2; l++) {
+        for (int m = 0; m < 2; m++) {
+            for (int n = 0; n < 2; n++) {
+                if (l == 1) {weights[0] = particlePos[0] - idx[0];}
+                if (m == 1) {weights[1] = particlePos[1] - idx[1];}
+                if (n == 1) {weights[2] = particlePos[2] - idx[2];}
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picz = picz + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->uz;
@@ -716,11 +716,12 @@ void MacGrid::updateParticlePositions(const float deltaTime)
       }
   }
   updateParticleVelocities();
+
   // Final position update
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
-//    particle->position = particle->oldPosition + particle->velocity*deltaTime;
+    particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
 }
 
