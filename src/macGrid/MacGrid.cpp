@@ -281,9 +281,9 @@ void MacGrid::setGridCellVelocity(const Vector3i cellIndices, const Vector3f vel
   gridCell->uy = velocity1[0];
   gridCell->uz = velocity1[0];
 
-  m_cells[cellIndices + Vector3i(1, 0, 0)]->ux = velocity2[0];
-  m_cells[cellIndices + Vector3i(0, 1, 0)]->uy = velocity2[1];
-  m_cells[cellIndices + Vector3i(0, 0, 1)]->uz = velocity2[2];
+  m_cells[cellIndices + Vector3i(1, 0, 0)]->ux = -velocity2[0];
+  m_cells[cellIndices + Vector3i(0, 1, 0)]->uy = -velocity2[1];
+  m_cells[cellIndices + Vector3i(0, 0, 1)]->uz = -velocity2[2];
 }
 
 // Debugging only: adds a particle to the system (does not set cells' and particles' relationships)
@@ -512,21 +512,24 @@ void MacGrid::enforceDirichletBC()
 }
 
 // Sets the diverging component of the velocity field to zero
+// Todo: save space by only having rows/cols for fluid cells
 void MacGrid::classifyPseudoPressureGradient()
 {
   Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper> m_solver;
+  int numFluidCells = 0;
+  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+    if (i->second->material == Fluid) {
+        i->second->index = numFluidCells;
+        numFluidCells++;
+
+    }
+  }
 
   //,Eigen::IncompleteCholesky<float>
-  Eigen::SparseMatrix<float> A(m_cells.size(), m_cells.size()); //coefficient matrix
+  Eigen::SparseMatrix<float> A(numFluidCells, numFluidCells);
   std::vector<T> coefficients;
 
-  VectorXf b(m_cells.size()); //divergence of velocity field
-
-  int matrixIndexCounter = 0;
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    i->second->index = matrixIndexCounter;
-    matrixIndexCounter++;
-  }
+  VectorXf b(numFluidCells);
 
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
@@ -540,11 +543,11 @@ void MacGrid::classifyPseudoPressureGradient()
         }
       }
       coefficients.push_back(T(i->second->index,i->second->index,centerCoefficient));
-      //assume ux,uy,uz in negative direction
-      float divergence = ((i->second->ux)-(m_cells[i->first+Eigen::Vector3i(1,0,0)]->ux))/(m_cellWidth*m_cellWidth)
-          + ((i->second->uy)-(m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy))/(m_cellWidth*m_cellWidth)
-          + ((i->second->uz)-(m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz))/(m_cellWidth*m_cellWidth);
-      //second paper subtracts number of air cells, first paper does not
+      float divergence = 0;
+      //assume velocity on solid always 0
+      divergence += (m_cells[i->first+Eigen::Vector3i(1,0,0)]->ux)-(i->second->ux);
+      divergence += (m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy)-(i->second->uy);
+      divergence += (m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz)-(i->second->uz);
       b(i->second->index,0) = divergence;
     } else {
       b(i->second->index,0) = 0;
@@ -555,14 +558,25 @@ void MacGrid::classifyPseudoPressureGradient()
   VectorXf scalarField(m_cells.size());
   m_solver.compute(A);
   scalarField = m_solver.solve(b);
+  cout << "mat A" << A << endl;
+  cout << "mat b" << b << endl;
+  cout << "scalar field " << scalarField << endl;
 
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
     if (i->second->material == Fluid) {
-      assert(m_cells.find(i->first+Eigen::Vector3i(1,0,0)) != m_cells.end());
-      float xGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(1,0,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-      float yGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,1,0)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
-      float zGradient = (scalarField[m_cells[i->first+Eigen::Vector3i(0,0,1)]->index]-scalarField[i->second->index])/(m_cellWidth*m_cellWidth);
+      float xGradient = scalarField[i->second->index];
+      if (m_cells[i->first+Eigen::Vector3i(-1,0,0)]->material == Fluid) {
+          xGradient -= scalarField[m_cells[i->first+Eigen::Vector3i(-1,0,0)]->index];
+      }
+      float yGradient = scalarField[i->second->index];
+      if (m_cells[i->first+Eigen::Vector3i(0,-1,0)]->material == Fluid) {
+          yGradient -= scalarField[m_cells[i->first+Eigen::Vector3i(0,-1,0)]->index];
+      }
+      float zGradient = scalarField[i->second->index];
+      if (m_cells[i->first+Eigen::Vector3i(0,0,-1)]->material == Fluid) {
+          zGradient -= scalarField[m_cells[i->first+Eigen::Vector3i(0,0,-1)]->index];
+      }
       i->second->ux -= xGradient;
       i->second->uy -= yGradient;
       i->second->uz -= zGradient;
