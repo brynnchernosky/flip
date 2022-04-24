@@ -15,24 +15,23 @@
 using namespace std;
 using namespace Eigen;
 
-// This is a command line application with one argument
+bool isInvalidPath(string thingName, bool isFile, string filepath)
+{
+  QFileInfo fileInfo(QString::fromStdString(filepath));
+  if (!fileInfo.exists()) {
+    cerr << "Error: " << thingName << " does not exist!" << endl;
+    return true;
+  }
+  if (isFile && !fileInfo.isFile()) {
+    cerr << "Error: " << thingName << " exists, but is not a file!" << endl;
+    return true;
+  }
+  return false;
+}
+
+// This is a command line application with two arguments
 int main(int argc, char *argv[])
 {
-  // ================== To delete
-
-  MacGrid grid;
-  grid.init();
-  grid.createBufferZone();
-  grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
-  // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
-  grid.printGrid();
-  grid.updateVelocityFieldByRemovingDivergence();
-  grid.printGrid();
-
-  return 0;
-
-  // ================== End to delete
-
   QCoreApplication a(argc, argv);
   QCommandLineParser parser;
 
@@ -46,80 +45,72 @@ int main(int argc, char *argv[])
   const QStringList args = parser.positionalArguments();
   if (args.size() != 2) {
     cerr << "Usage: ./flip <method> <folder>" << endl;
-    a.exit(1);
+    a.exit();
+    return 1;
+  }
+  const string method = "simulate";              // args[0].toStdString();
+  const string folder = "results/workingFolder"; // args[1].toStdString();
+
+  // Panic if the config file does not exist in the specified folder
+  const string configFilepath = folder + "/config.ini";
+  if (isInvalidPath("config file", true, configFilepath)) {
+    a.exit();
     return 1;
   }
 
-  // Parse parameters, ensure that given folder has the required folders
-  const string method = args[0].toStdString();
-  const string folder = args[1].toStdString();
-
-  // Load the .ini if it exists
-  const QString ini_filepath = QString::fromStdString(folder + "/config.ini");
-  QFileInfo ini_file(ini_filepath);
-  if (!(ini_file.exists() && ini_file.isFile())) {
-      std::cerr << "config.ini does not exist in given folder" << std::endl;
-      a.exit(1);
-      return 1;
-  }
-  QSettings settings(ini_filepath, QSettings::IniFormat);
-
-  // Make the directories if they do not exist
   // Start timer
   const auto startTime = chrono::high_resolution_clock::now();
 
   // Switch on method
-  if (method == "simulate")
-  {
-    const QString obj_filepath = QString::fromStdString(folder + "/fluid.obj");
-    QFileInfo obj_file(ini_filepath);
-    if (!(obj_file.exists() && obj_file.isFile())) {
-        std::cerr << "fluid.obj does not exist in given folder" << std::endl;
-        a.exit(1);
-        return 1;
+  if (method == "simulate") {
+
+    if (isInvalidPath("solid obj file", true, folder + "/solid.obj") ||
+        isInvalidPath("fluid obj file", true, folder + "/fluid.obj")) {
+      a.exit();
+      return 1;
     }
 
-    const QString particle_filepath = QString::fromStdString(folder + "/particles");
-    QDir particle_dir(particle_filepath);
-    if (!particle_dir.exists()) {
-        QDir().mkdir(particle_filepath);
+    const string particleFilepath = folder + "/particles";
+    if (isInvalidPath("particles directory", false, particleFilepath)) {
+      QDir().mkdir(QString::fromStdString(particleFilepath));
     }
 
-    const string input_mesh = obj_filepath.toStdString();
-    const string output_folder = particle_filepath.toStdString();
+    MacGrid grid(folder);
 
-    // Flip flip;
-    // flip.init();
-    // flip.simulate();
+    // ================== TO DELETE
 
-    cout << "Error: simulate not yet implemented!" << endl;
-  }
-  else if (method == "particle-to-mesh")
-  {
-    const QString particle_filepath = QString::fromStdString(folder + "/particles");
-    QDir particle_dir(particle_filepath);
-    if (!particle_dir.exists()) {
-        std::cerr << "particles directory does not exist in given folder" << std::endl;
+    grid.init();
+    grid.createBufferZone();
+    grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
+    // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
+    grid.printGrid();
+    grid.updateVelocityFieldByRemovingDivergence();
+    grid.printGrid();
+
+    // ================== END TO DELETE
+
+  } else if (method == "particle-to-mesh") {
+
+    const string particleFilepath = folder + "/particles";
+    if (isInvalidPath("particles directory", false, particleFilepath)) {
+      a.exit();
+      return 1;
     }
 
-    const QString sdf_filepath = QString::fromStdString(folder + "/sdfs");
-    QDir sdf_dir(sdf_filepath);
-    if (!sdf_dir.exists()) {
-        QDir().mkdir(sdf_filepath);
+    const string sdfFilepath = folder + "/sdfs";
+    if (isInvalidPath("sdfs directory", false, sdfFilepath)) {
+      QDir().mkdir(QString::fromStdString(sdfFilepath));
     }
 
-    const string input_filepath = particle_filepath.toStdString();
-    const string output_filepath = sdf_filepath.toStdString();
-
+    QSettings settings(QString::fromStdString(configFilepath), QSettings::IniFormat);
     Reconstruction converter(settings);
-    converter.surface_reconstruction(input_filepath, output_filepath);
-  }
-  else
-  {
-    cout << "Error: unknown method!" << endl;
-  }
+    converter.surface_reconstruction(particleFilepath, sdfFilepath);
 
-  std::cout << "Here near exit" << std::endl;
+  } else {
+
+    cout << "Error: unknown method!" << endl;
+
+  }
 
   // End timer
   const auto endTime = chrono::high_resolution_clock::now();

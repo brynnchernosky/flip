@@ -18,13 +18,12 @@ class MacGrid
 {
   public:
 
-    MacGrid();
-    MacGrid(QSettings &settings, std::string folder);
+    MacGrid(std::string folder);
     ~MacGrid();
 
     void validate();
     void init();
-    void simulate(std::string output_folder);
+    void simulate();
     void setCellAndParticleRelationships();
     void createBufferZone();
 
@@ -37,6 +36,8 @@ class MacGrid
     void updateVelocityFieldByRemovingDivergence();
 
   private:
+
+    std::string m_outputFolder;
 
     float m_cellWidth;
     float m_maxAverageSurfaceParticlesPerCellFaceArea; // surfaceParticles.size() <= this * surfaceArea
