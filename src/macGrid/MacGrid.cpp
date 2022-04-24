@@ -31,7 +31,7 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 }
 #endif
 
-MacGrid::MacGrid(QSettings &settings, std::string folder) {
+MacGrid::MacGrid(QSettings &settings, string folder) {
 #if SANITY_CHECKS
   assert(0 < cellWidth);
   assert(0 < cellCount[0]);
@@ -39,34 +39,34 @@ MacGrid::MacGrid(QSettings &settings, std::string folder) {
   assert(0 < cellCount[2]);
 #endif
 
-    settings.beginGroup("/Simulation");
-    m_cellWidth = settings.value(QString("cellWidth")).toFloat();
-    m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
-    m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
+  settings.beginGroup("/Simulation");
+  m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+  m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
+  m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
 
-    m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
-                           settings.value(QString("cellCountY")).toInt(),
-                           settings.value(QString("cellCountZ")).toInt());
+  m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
+                         settings.value(QString("cellCountY")).toInt(),
+                         settings.value(QString("cellCountZ")).toInt());
 
-    m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
-                                settings.value(QString("cornerPositionY")).toFloat(),
-                                settings.value(QString("cornerPositionZ")).toFloat());
+  m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
+                              settings.value(QString("cornerPositionY")).toFloat(),
+                              settings.value(QString("cornerPositionZ")).toFloat());
 
-    m_solidMeshFilepath = folder + "/solid.obj";
-    m_fluidMeshFilepath = folder + "/fluid.obj";
+  m_solidMeshFilepath = folder + "/solid.obj";
+  m_fluidMeshFilepath = folder + "/fluid.obj";
 
-    m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
-                                       settings.value(QString("fluidInternalPositionY")).toFloat(),
-                                       settings.value(QString("fluidInternalPositionZ")).toFloat());
+  m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
+                                      settings.value(QString("fluidInternalPositionY")).toFloat(),
+                                      settings.value(QString("fluidInternalPositionZ")).toFloat());
 
-    m_simulationTime = settings.value(QString("simulationTime")).toInt();
+  m_simulationTime = settings.value(QString("simulationTime")).toInt();
 
-    m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
-                               settings.value(QString("gravityY")).toFloat(),
-                               settings.value(QString("gravityZ")).toFloat());
+  m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
+                              settings.value(QString("gravityY")).toFloat(),
+                              settings.value(QString("gravityZ")).toFloat());
 
-    m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
-    settings.endGroup();
+  m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
+  settings.endGroup();
 }
 
 MacGrid::~MacGrid()
@@ -105,32 +105,32 @@ void MacGrid::init()
   addParticlesToCells(Material::Fluid);
 }
 
-extern void saveParticles(std::string filepath, std::vector<Eigen::Vector3f> particle_positions) {
+extern void saveParticles(string filepath, vector<Vector3f> particle_positions) {
     fstream fout;
     fout.open(filepath, ios::out);
-    if(!fout.good()) {
-        std::cerr << filepath << " could not be opened" << std::endl;
+    if (!fout.good()) {
+        cerr << filepath << " could not be opened" << endl;
         return;
     }
 
-    for (Eigen::Vector3f particle : particle_positions) {
-        std::string toWrite =
-                std::to_string(particle[0]) + ", " +
-                std::to_string(particle[1]) + ", " +
-                std::to_string(particle[2]);
-        fout << toWrite << std::endl;
+    for (Vector3f particle : particle_positions) {
+        string toWrite =
+                to_string(particle[0]) + ", " +
+                to_string(particle[1]) + ", " +
+                to_string(particle[2]);
+        fout << toWrite << endl;
     }
 
     fout.close();
 }
 
-void MacGrid::simulate(std::string output_folder)
+void MacGrid::simulate(string output_folder)
 {
   float time = 0.0f;
 
   float framePeriod = 0.166666666f;
 
-  std::vector<QFuture<void>> futures;
+  vector<QFuture<void>> futures;
   while (time < m_simulationTime) {
     // Compute deltaTime or something
     // const float deltaTime = calculateDeltaTime();
@@ -148,7 +148,7 @@ void MacGrid::simulate(std::string output_folder)
     createBufferZone();
 
     // Given cells, neighbors, and cell velocities, update velocity by removing divergence
-    classifyPseudoPressureGradient();
+    updateVelocityFieldByRemovingDivergence();
 
     // Given old and new grid velocities, updates particle positions using RK2
     updateParticlePositions(deltaTime);
@@ -157,10 +157,10 @@ void MacGrid::simulate(std::string output_folder)
 
     // Todo: if some conditional is met spit out the particles
     if (true) {
-        std::string output_filepath = output_folder + "/" + std::to_string(time) + ".csv";
-        std::vector<Eigen::Vector3f> particles;
+        string output_filepath = output_folder + "/" + to_string(time) + ".csv";
+        vector<Vector3f> particles;
         for (Particle * particle : m_particles) {
-            Eigen::Vector3f position = particle->position;
+            Vector3f position = particle->position;
             particles.emplace_back(position[0], position[1], position[2]);
         }
         QFuture<void> future = QtConcurrent::run(saveParticles, output_filepath, particles);
@@ -168,7 +168,7 @@ void MacGrid::simulate(std::string output_folder)
     }
   }
 
-  std::cout << "Waiting for threads  to finish writing particles" << std::endl;
+  cout << "Waiting for threads  to finish writing particles" << endl;
   for (QFuture<void> future: futures) {
       future.waitForFinished();
   }
@@ -348,7 +348,7 @@ void MacGrid::meshToSurfaceParticles(vector<Particle *> &surfaceParticles, const
 }
 
 // Densely fills grid cells with the given material, starting from a given internal position
-void MacGrid::fillGridCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition)
+void MacGrid::fillGridCellsFromInternalPosition(const Material material, const Vector3f &internalPosition)
 {
   const Vector3i cellIndices = positionToIndices(internalPosition);
   const int layerNumber = material == Material::Fluid ? 0 : 100;
@@ -374,7 +374,7 @@ void MacGrid::fillGridCellsFromInternalPosition(const Material material, const E
 }
 
 // Recursive helper function for the above
-void MacGrid::fillGridCellsRecursive(const Material material, const int layerNumber, const Eigen::Vector3i &cellIndices) {
+void MacGrid::fillGridCellsRecursive(const Material material, const int layerNumber, const Vector3i &cellIndices) {
 
   // For each neighbor
   for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
@@ -431,7 +431,7 @@ float MacGrid::calculateDeltaTime()
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
       Particle * particle = m_particles[i];
-      if(m_particles[i]->velocity.norm()>=maxV) {maxV = m_particles[i]->velocity.norm();}
+      if (m_particles[i]->velocity.norm()>=maxV) {maxV = m_particles[i]->velocity.norm();}
   }
   return m_cellWidth / maxV;
 
@@ -473,76 +473,98 @@ void MacGrid::enforceDirichletBC()
 }
 
 // Sets the diverging component of the velocity field to zero
-// Todo: save space by only having rows/cols for fluid cells
-void MacGrid::classifyPseudoPressureGradient()
+void MacGrid::updateVelocityFieldByRemovingDivergence()
 {
-  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>,Lower|Upper> m_solver;
+  // Something about preconditioning; didn't quite work (@Daniel)
+  // IncompleteCholesky<float>
+
+  // Set up solver
+  ConjugateGradient<SparseMatrix<float>, Lower|Upper> m_solver;
+
+  // Number all fluid cells
   int numFluidCells = 0;
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
     if (i->second->material == Fluid) {
-        i->second->index = numFluidCells;
-        numFluidCells++;
-
+      i->second->index = numFluidCells;
+      numFluidCells++;
+    } else {
+      i->second->index = -1;
     }
   }
 
-  //,Eigen::IncompleteCholesky<float>
-  Eigen::SparseMatrix<float> A(numFluidCells, numFluidCells);
-  std::vector<T> coefficients;
-
+  // Create A and b arrays
+  SparseMatrix<float> A(numFluidCells, numFluidCells);
+  vector<T> coefficients;
   VectorXf b(numFluidCells);
 
+  // Fill A and b arrays
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+
+    const Vector3i cellIndices = i->first;
+
+    // For each fluid cell
     if (i->second->material == Fluid) {
+
+      // Fill A coefficients
       float centerCoefficient = -6;
       for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
-        if (m_cells[i->first + neighborOffset]->material == Solid) {
+        if (m_cells[cellIndices + neighborOffset]->material == Solid) {
           centerCoefficient += 1;
-        } else if (m_cells[i->first + neighborOffset]->material == Fluid) {
-          coefficients.push_back(T(i->second->index,m_cells[i->first + neighborOffset]->index,1));
+        } else if (m_cells[cellIndices + neighborOffset]->material == Fluid) {
+          coefficients.push_back(T(i->second->index,m_cells[cellIndices + neighborOffset]->index,1));
         }
       }
-      coefficients.push_back(T(i->second->index,i->second->index,centerCoefficient));
+      coefficients.push_back(T(i->second->index,i->second->index, centerCoefficient));
+
+      // Fill b divergences (at this point, velocities in/out of solids should be 0)
       float divergence = 0;
-      //assume velocity on solid always 0
-      divergence += (m_cells[i->first+Eigen::Vector3i(1,0,0)]->ux)-(i->second->ux);
-      divergence += (m_cells[i->first+Eigen::Vector3i(0,1,0)]->uy)-(i->second->uy);
-      divergence += (m_cells[i->first+Eigen::Vector3i(0,0,1)]->uz)-(i->second->uz);
-      b(i->second->index,0) = divergence;
-    } else {
-      b(i->second->index,0) = 0;
-    }
+      divergence += (m_cells[cellIndices + Vector3i(1, 0, 0)]->ux) - i->second->ux;
+      divergence += (m_cells[cellIndices + Vector3i(0, 1, 0)]->uy) - i->second->uy;
+      divergence += (m_cells[cellIndices + Vector3i(0, 0, 1)]->uz) - i->second->uz;
+      b[i->second->index] = divergence;
+    } 
   }
   A.setFromTriplets(coefficients.begin(), coefficients.end());
 
-  VectorXf scalarField(m_cells.size());
+  // Solve for pseudo-pressures
+  VectorXf pseudoPressures(m_cells.size());
   m_solver.compute(A);
-  scalarField = m_solver.solve(b);
-  cout << "mat A" << A << endl;
-  cout << "mat b" << b << endl;
-  cout << "scalar field " << scalarField << endl;
+  pseudoPressures = m_solver.solve(b);
 
+  // Use pseudo-pressures to correct velocities
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material == Fluid) {
-      float xGradient = scalarField[i->second->index];
-      if (m_cells[i->first+Eigen::Vector3i(-1,0,0)]->material == Fluid) {
-          xGradient -= scalarField[m_cells[i->first+Eigen::Vector3i(-1,0,0)]->index];
+
+    const Vector3i cellIndices = i->first;
+    Cell * cell = i->second;
+
+    // For each fluid cell, update velocity based on pseudopressure
+    if (cell->material == Fluid) {
+      float xGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Fluid) {
+        xGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(-1, 0, 0)]->index];
       }
-      float yGradient = scalarField[i->second->index];
-      if (m_cells[i->first+Eigen::Vector3i(0,-1,0)]->material == Fluid) {
-          yGradient -= scalarField[m_cells[i->first+Eigen::Vector3i(0,-1,0)]->index];
+      cell->ux -= xGradient;
+
+      float yGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Fluid) {
+        yGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, -1, 0)]->index];
       }
-      float zGradient = scalarField[i->second->index];
-      if (m_cells[i->first+Eigen::Vector3i(0,0,-1)]->material == Fluid) {
-          zGradient -= scalarField[m_cells[i->first+Eigen::Vector3i(0,0,-1)]->index];
+      cell->uy -= yGradient;
+
+      float zGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Fluid) {
+        zGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, 0, -1)]->index];
       }
-      i->second->ux -= xGradient;
-      i->second->uy -= yGradient;
-      i->second->uz -= zGradient;
+      cell->uz -= zGradient;
     }
   }
+
+   // Section 3F
+   // For each non fluid cell
+     // If cell has at least one fluid neighbor
+       // Set velocity components of cell that are not bordering fluid cell to average of fluid cell neighbor velocities
 }
 
 // Sets the velocity field based on the particles' positions and velocities
@@ -662,13 +684,13 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     particle->position = particle->position + particle->velocity*deltaTime*0.5;
     // TODO: fix problem of particle penetrating the solid cell
     Vector3i gridIdx = positionToIndices(particle->position);
-    if(m_cells[gridIdx]->material == Material::Solid){
+    if (m_cells[gridIdx]->material == Material::Solid){
           Vector3i oldIdx = positionToIndices(particle->oldPosition);
           Vector3i movement = oldIdx-gridIdx;
           Vector3i offset = Vector3i(0,0,0);
           for(int j = 0; j<3; j++){
               offset[j] = movement[j];
-              if(movement[j] == 0 && m_cells[gridIdx + offset]->material!=Material::Fluid){
+              if (movement[j] == 0 && m_cells[gridIdx + offset]->material!=Material::Fluid){
                   offset[j] = 0;
               }
           }

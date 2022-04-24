@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
   // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
   grid.printGrid();
-  grid.classifyPseudoPressureGradient();
+  grid.updateVelocityFieldByRemovingDivergence();
   grid.printGrid();
 
   return 0;
@@ -64,11 +64,7 @@ int main(int argc, char *argv[])
   }
   QSettings settings(ini_filepath, QSettings::IniFormat);
 
-<<<<<<< HEAD
-=======
   // Make the directories if they do not exist
-
->>>>>>> 3e2a1ae4f5eda38a664cefe8d9e8014de88ee3b2
   // Start timer
   const auto startTime = chrono::high_resolution_clock::now();
 

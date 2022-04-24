@@ -33,7 +33,7 @@ class MacGrid
     void printGrid() const;
 
     // Current unit-testing target
-    void classifyPseudoPressureGradient();
+    void updateVelocityFieldByRemovingDivergence();
 
   private:
 

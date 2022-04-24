@@ -10,10 +10,11 @@ struct Particle;
 
 struct Cell
 {
+  float pseudoPressure = 0;
+
   float ux;
   float uy;
   float uz;
-  float p;
 
   float oldUX;
   float oldUY;
