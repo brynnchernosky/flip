@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <dirent.h>
 
+// ================== Constructors
+
 Reconstruction::Reconstruction():
     m_gridSpacing(1),
     m_numOfParticles(50000),
@@ -15,19 +17,23 @@ Reconstruction::Reconstruction():
     init();
 }
 
-Reconstruction::Reconstruction(float grid_spacing, int numOfParticles,
-               int gridHeight, int gridWidth, int gridLength):
-    m_gridSpacing(grid_spacing),
-    m_numOfParticles(numOfParticles),
-    m_gridHeight(gridHeight),
-    m_gridWidth(gridWidth),
-    m_gridLength(gridLength)
-
+Reconstruction::Reconstruction(QSettings &settings)
 {
+    settings.beginGroup("/Conversion");
+    m_gridSpacing = settings.value("gridSpacing").toFloat();
+    m_numOfParticles = settings.value("numOfParticles").toInt();
+    m_gridHeight = settings.value("gridHeight").toInt();
+    m_gridWidth = settings.value("gridWidth").toInt();
+    m_gridLength = settings.value("gridLength").toInt();
+    settings.endGroup();
     init();
 }
 
+// ================== Destructor
+
 Reconstruction::~Reconstruction() {}
+
+// ================== Initializer
 
 void Reconstruction::init() {
     m_searchRadius = 3 * m_gridSpacing;
@@ -38,6 +44,8 @@ void Reconstruction::init() {
     float length_offset = (m_gridLength / 2.f) * m_gridSpacing;
     m_center = Eigen::Vector3f(height_offset, width_offset, length_offset);
 }
+
+// ================== Generate per file SDFs
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath) {
     struct dirent *entry;
@@ -86,6 +94,8 @@ void Reconstruction::surface_reconstruction(string input_filepath, string output
     closedir(dp);
     return;
 }
+
+// ================== Helpers to calculate SDF
 
 int Reconstruction::XYZtoGridID(Eigen::Vector3f xyz){
     int x = floor(xyz[0]);
@@ -164,6 +174,8 @@ void Reconstruction::writeGrid(string output_filepath) {
             }
         }
     }
+
+    fout.close();
 }
 
 float Reconstruction::kernel(float s) {
