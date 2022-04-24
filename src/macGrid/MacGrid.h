@@ -18,6 +18,7 @@ class MacGrid
 {
   public:
 
+    MacGrid();
     MacGrid(QSettings &settings, std::string folder);
     ~MacGrid();
 

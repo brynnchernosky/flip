@@ -31,7 +31,47 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 }
 #endif
 
-MacGrid::MacGrid(QSettings &settings, string folder) {
+MacGrid::MacGrid()
+{
+#if SANITY_CHECKS
+  assert(0 < cellWidth);
+  assert(0 < cellCount[0]);
+  assert(0 < cellCount[1]);
+  assert(0 < cellCount[2]);
+#endif
+
+  QSettings settings("src/config.ini", QSettings::IniFormat);
+
+  m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+  m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
+  m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
+
+  m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
+                         settings.value(QString("cellCountY")).toInt(),
+                         settings.value(QString("cellCountZ")).toInt());
+
+  m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
+                              settings.value(QString("cornerPositionY")).toFloat(),
+                              settings.value(QString("cornerPositionZ")).toFloat());
+
+  m_solidMeshFilepath = settings.value(QString("solidMeshFilepath")).toString().toStdString();
+  m_fluidMeshFilepath = settings.value(QString("fluidMeshFilepath")).toString().toStdString();
+  m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
+                                     settings.value(QString("fluidInternalPositionY")).toFloat(),
+                                     settings.value(QString("fluidInternalPositionZ")).toFloat());
+
+  m_simulationTime = settings.value(QString("simulationTime")).toInt();
+
+  m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
+                             settings.value(QString("gravityY")).toFloat(),
+                             settings.value(QString("gravityZ")).toFloat());
+
+  m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
+}
+
+
+MacGrid::MacGrid(QSettings &settings, std::string folder) {
+
 #if SANITY_CHECKS
   assert(0 < cellWidth);
   assert(0 < cellCount[0]);
@@ -596,12 +636,12 @@ void MacGrid::updateParticleVelocities()
     idx[2] = floor(particlePos[2]);//n
     Vector3f weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
-    for(int l = 0; l < 2; l++){
-        for(int m = 0; m < 2; m++){
-            for(int n = 0; n < 2; n++){
-                if (l == 1){weights[0] = particlePos[0] - idx[0];}
-                if (m == 1){weights[1] = particlePos[1] - idx[1];}
-                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+    for (int l = 0; l < 2; l++) {
+        for (int m = 0; m < 2; m++) {
+            for (int n = 0; n < 2; n++) {
+                if (l == 1) {weights[0] = particlePos[0] - idx[0];}
+                if (m == 1) {weights[1] = particlePos[1] - idx[1];}
+                if (n == 1) {weights[2] = particlePos[2] - idx[2];}
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picx = picx + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->ux;
@@ -622,12 +662,12 @@ void MacGrid::updateParticleVelocities()
 
     weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
-    for(int l = 0; l < 2; l++){
-        for(int m = 0; m < 2; m++){
-            for(int n = 0; n < 2; n++){
-                if (l == 1){weights[0] = particlePos[0] - idx[0];}
-                if (m == 1){weights[1] = particlePos[1] - idx[1];}
-                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+    for (int l = 0; l < 2; l++) {
+        for (int m = 0; m < 2; m++) {
+            for (int n = 0; n < 2; n++) {
+                if (l == 1) {weights[0] = particlePos[0] - idx[0];}
+                if (m == 1) {weights[1] = particlePos[1] - idx[1];}
+                if (n == 1) {weights[2] = particlePos[2] - idx[2];}
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picy = picy + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->uy;
@@ -644,12 +684,12 @@ void MacGrid::updateParticleVelocities()
 
     weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
-    for(int l = 0; l < 2; l++){
-        for(int m = 0; m < 2; m++){
-            for(int n = 0; n < 2; n++){
-                if (l == 1){weights[0] = particlePos[0] - idx[0];}
-                if (m == 1){weights[1] = particlePos[1] - idx[1];}
-                if (n == 1){weights[2] = particlePos[2] - idx[2];}
+    for (int l = 0; l < 2; l++) {
+        for (int m = 0; m < 2; m++) {
+            for (int n = 0; n < 2; n++) {
+                if (l == 1) {weights[0] = particlePos[0] - idx[0];}
+                if (m == 1) {weights[1] = particlePos[1] - idx[1];}
+                if (n == 1) {weights[2] = particlePos[2] - idx[2];}
                 Vector3i offset = Vector3i(l, m, n);
                 // Calculate PIC particle velocity
                 picz = picz + weights[0]*weights[2]*weights[3]*m_cells[gridIdx+offset]->uz;
@@ -699,11 +739,12 @@ void MacGrid::updateParticlePositions(const float deltaTime)
       }
   }
   updateParticleVelocities();
+
   // Final position update
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
-//    particle->position = particle->oldPosition + particle->velocity*deltaTime;
+    particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
 }
 
