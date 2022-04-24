@@ -20,10 +20,16 @@ int main(int argc, char *argv[])
 {
   // ================== To delete
 
-//  MacGrid grid;
-//  grid.init();
-//  grid.setCellAndParticleRelationships();
-//  grid.printGrid();
+  MacGrid grid;
+  grid.init();
+  grid.createBufferZone();
+  grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
+  // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
+  grid.printGrid();
+  grid.classifyPseudoPressureGradient();
+  grid.printGrid();
+
+  return 0;
 
   // ================== End to delete
 
@@ -48,7 +54,7 @@ int main(int argc, char *argv[])
   const string method = args[0].toStdString();
   const string folder = args[1].toStdString();
 
-  //Load the .ini exists
+  // Load the .ini if it exists
   const QString ini_filepath = QString::fromStdString(folder + "/config.ini");
   QFileInfo ini_file(ini_filepath);
   if (!(ini_file.exists() && ini_file.isFile())) {
@@ -58,6 +64,11 @@ int main(int argc, char *argv[])
   }
   QSettings settings(ini_filepath, QSettings::IniFormat);
 
+<<<<<<< HEAD
+=======
+  // Make the directories if they do not exist
+
+>>>>>>> 3e2a1ae4f5eda38a664cefe8d9e8014de88ee3b2
   // Start timer
   const auto startTime = chrono::high_resolution_clock::now();
 

@@ -15,13 +15,15 @@ struct Cell
   float uz;
   float p;
 
+  float oldUX;
+  float oldUY;
+  float oldUZ;
+
   Eigen::Vector3i cellIndex;
   int index;
 
   Material material = Material::Air;
   int layer = -1;
-
-  std::set<Particle *> particles;
 };
 
 #endif // CELL_H

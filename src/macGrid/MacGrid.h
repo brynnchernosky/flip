@@ -25,10 +25,15 @@ class MacGrid
     void init();
     void simulate(std::string output_folder);
     void setCellAndParticleRelationships();
+    void createBufferZone();
 
     // Debugging
-    void addParticle(Eigen::Vector3f position, Eigen::Vector3f velocity);
+    void setGridCellVelocity(const Eigen::Vector3i cellIndices, const Eigen::Vector3f velocity1, const Eigen::Vector3f velocity2);
+    void addParticle(const Eigen::Vector3f position, const Eigen::Vector3f velocity);
     void printGrid() const;
+
+    // Current unit-testing target
+    void classifyPseudoPressureGradient();
 
   private:
 
@@ -50,9 +55,11 @@ class MacGrid
     Eigen::Vector3f         m_fluidInternalPosition;
 
     void meshToSurfaceParticles(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
-    void fillGridCellsFromInternalPosition(Material material, const Eigen::Vector3f &internalPosition);
-    void fillGridCellsRecursive           (Material material, int layerNumber, const Eigen::Vector3i &cellPosition);
-    void addParticlesToCells(Material material);
+
+    void fillGridCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
+    void fillGridCellsRecursive           (const Material material, const int layerNumber, const Eigen::Vector3i &cellPosition);
+
+    void addParticlesToCells              (const Material material);
 
     // Simulation Helpers
 
@@ -60,18 +67,23 @@ class MacGrid
     float m_simulationTime;                     // total time for simulation
     Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
-    void applyExternalForces(float deltaTime);
-    void enforceDirichletBC();
-    void classifyPseudoPressureGradient();
-    void updateParticleVelocities();
-    void updateParticlePositions(float deltaTime);
+
     float calculateDeltaTime();
+    void applyExternalForces(const float deltaTime);
+    void enforceDirichletBC();
+    void transferParticlesToGrid();
+    void updateParticleVelocities();
+    void updateParticlePositions(const float deltaTime);
+
+    // Positional Helpers
+
+    const Eigen::Vector3i positionToIndices      (const Eigen::Vector3f &position)    const;
+    const Eigen::Vector3f indicesToBasePosition  (const Eigen::Vector3i &cellIndices) const;
+    const Eigen::Vector3f indicesToCenterPosition(const Eigen::Vector3i &cellIndices) const;
 
     // Miscellaneous Helpers
 
-    void assignParticleCellMaterials(Material material, std::vector<Particle *> &particles);
-
-    const Eigen::Vector3i positionToIndices(const Eigen::Vector3f &position) const;
+    void assignParticleCellMaterials(const Material material, const std::vector<Particle *> &particles);
 
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };
