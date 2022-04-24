@@ -31,6 +31,45 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 }
 #endif
 
+MacGrid::MacGrid()
+{
+#if SANITY_CHECKS
+  assert(0 < cellWidth);
+  assert(0 < cellCount[0]);
+  assert(0 < cellCount[1]);
+  assert(0 < cellCount[2]);
+#endif
+
+  QSettings settings("src/config.ini", QSettings::IniFormat);
+
+  m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+  m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
+  m_maxAverageSurfaceParticlesPerArea = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
+
+  m_cellCount = Vector3i(settings.value(QString("cellCountX")).toInt(),
+                         settings.value(QString("cellCountY")).toInt(),
+                         settings.value(QString("cellCountZ")).toInt());
+
+  m_cornerPosition = Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
+                              settings.value(QString("cornerPositionY")).toFloat(),
+                              settings.value(QString("cornerPositionZ")).toFloat());
+
+  m_solidMeshFilepath = settings.value(QString("solidMeshFilepath")).toString().toStdString();
+  m_fluidMeshFilepath = settings.value(QString("fluidMeshFilepath")).toString().toStdString();
+  m_fluidInternalPosition = Vector3f(settings.value(QString("fluidInternalPositionX")).toFloat(),
+                                     settings.value(QString("fluidInternalPositionY")).toFloat(),
+                                     settings.value(QString("fluidInternalPositionZ")).toFloat());
+
+  m_simulationTime = settings.value(QString("simulationTime")).toInt();
+
+  m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
+                             settings.value(QString("gravityY")).toFloat(),
+                             settings.value(QString("gravityZ")).toFloat());
+
+  m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
+}
+
+
 MacGrid::MacGrid(QSettings &settings, std::string folder) {
 #if SANITY_CHECKS
   assert(0 < cellWidth);
