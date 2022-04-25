@@ -114,8 +114,8 @@ int main(int argc, char *argv[])
 
   // End timer
   const auto endTime = chrono::high_resolution_clock::now();
-  const auto duration = chrono::duration_cast<chrono::milliseconds>(endTime - startTime).count();
-  cout << "Execution took " << duration << " milliseconds." <<endl;
+  const auto duration = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
+  cout << "Execution took " << duration << " microseconds." <<endl;
 
   a.exit();
 }

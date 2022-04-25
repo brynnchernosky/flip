@@ -487,7 +487,7 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
   // IncompleteCholesky<float>
 
   // Set up solver
-  ConjugateGradient<SparseMatrix<float>, Lower|Upper> m_solver;
+  ConjugateGradient<SparseMatrix<float>, Lower|Upper, IncompleteCholesky<float>> m_solver;
 
   // Number all fluid cells
   int numFluidCells = 0;
