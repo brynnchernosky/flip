@@ -210,6 +210,7 @@ void MacGrid::createBufferZone()
 
           // Create the neighbor cell and put it in the hash table
           Cell * newNeighbor = new Cell{};
+          newNeighbor->cellIndices = neighborIndices;
           m_cells.insert({neighborIndices, newNeighbor});
           
           // Set its material and layer
@@ -371,6 +372,7 @@ void MacGrid::fillGridCellsFromInternalPosition(const Material material, const V
 
   // Create a cell here
   Cell * newCell = new Cell{};
+  newCell->cellIndices = cellIndices;
   newCell->material = material;
   newCell->layer = layerNumber;
   m_cells.insert({cellIndices, newCell});
@@ -391,6 +393,7 @@ void MacGrid::fillGridCellsRecursive(const Material material, const int layerNum
 
     // Create a cell here
     Cell * newCell = new Cell{};
+    newCell->cellIndices = cellIndices;
     newCell->material = material;
     newCell->layer = layerNumber;
     m_cells.insert({neighborIndices, newCell});
@@ -483,10 +486,7 @@ void MacGrid::enforceDirichletBC()
 // Sets the diverging component of the velocity field to zero
 void MacGrid::updateVelocityFieldByRemovingDivergence()
 {
-  // Something about preconditioning; didn't quite work (@Daniel)
-  // IncompleteCholesky<float>
-
-  // Set up solver
+  // Set up solver with preconditioning
   ConjugateGradient<SparseMatrix<float>, Lower|Upper, IncompleteCholesky<float>> m_solver;
 
   // Number all fluid cells
@@ -678,43 +678,55 @@ void MacGrid::updateParticleVelocities()
   }
 }
 
-// Todo: move particles, use oldPosition, fix collisions
+// Sets particle positions based on their velocities
 void MacGrid::updateParticlePositions(const float deltaTime)
 {
-  // Runge-Kutta 2 ODE solver
+  // Get their velocities
   updateParticleVelocities();
 
+  // Take a half step
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * particle = m_particles[i];
+    Particle * particle   = m_particles[i];
     particle->oldPosition = particle->position;
-    // Move particles half step
-    particle->position = particle->position + particle->velocity*deltaTime*0.5;
-    // TODO: fix problem of particle penetrating the solid cell
-    Vector3i gridIdx = positionToIndices(particle->position);
-    if (m_cells[gridIdx]->material == Material::Solid){
-      Vector3i oldIdx = positionToIndices(particle->oldPosition);
-      Vector3i movement = oldIdx-gridIdx;
-      Vector3i offset = Vector3i(0,0,0);
-      for(int j = 0; j<3; j++){
-        offset[j] = movement[j];
-        if (movement[j] == 0 && m_cells[gridIdx + offset]->material!=Material::Fluid){
-          offset[j] = 0;
+    particle->position    = particle->position + particle->velocity*deltaTime*0.5;
+
+    // Todo: Resolve collisions by moving the particle out of the solid cell
+    Vector3i newIndices = positionToIndices(particle->position);
+    if (m_cells[newIndices]->material == Material::Solid) {
+      const Vector3i oldIndices = positionToIndices(particle->oldPosition);
+      const Vector3i newToOld = oldIndices - newIndices;
+      Vector3i normalEstimate = newToOld;
+      for (int j = 0; j < 3; ++j) {
+        if (m_cells[newIndices + normalEstimate]->material != Material::Fluid) {
+          normalEstimate[j] = 0;
         }
       }
-
-      particle->position = Vector3f(gridIdx[0] + offset[0] +0.5,gridIdx[1] + offset[1] + 0.5,gridIdx[2] + offset[2] +0.5)*m_cellWidth+m_cornerPosition;
+      particle->position = indicesToCenterPosition(newIndices + normalEstimate);
     }
   }
+
+  // Get their velocities again
   updateParticleVelocities();
 
-  // Final position update
+  // Take a full step from their original positions
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
     particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
 
 // ================== Positional Helpers
 
@@ -761,6 +773,7 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
 
         // Create the cell and put it in the hash table
         Cell * newCell = new Cell{};
+        newCell->cellIndices = cellIndices;
         m_cells.insert({cellIndices, newCell});
 
         // Set its material and layer

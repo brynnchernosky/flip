@@ -20,7 +20,7 @@ struct Cell
   float oldUY;
   float oldUZ;
 
-  Eigen::Vector3i cellIndex;
+  Eigen::Vector3i cellIndices;
   int index;
 
   Material material = Material::Air;
