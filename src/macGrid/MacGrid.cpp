@@ -186,7 +186,7 @@ void MacGrid::createBufferZone()
   // Set layer field of all cells to −1
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) kv->second->layer = -1;
 
-  // Update grid cells that currently have fluid in them
+  // Update grid cells that currently have fluid in them, sets layer for fluid cell to 0
   assignParticleCellMaterials(Material::Fluid, m_particles);
 
   // Create a buffer zone around the fluid
@@ -203,10 +203,10 @@ void MacGrid::createBufferZone()
       // For each of its six neighbor cells
       for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
         const Vector3i neighborIndices = cellIndices + neighborOffset;
-        auto kv = m_cells.find(neighborIndices);
+        auto neighborKey = m_cells.find(neighborIndices);
 
         // If the neighbor cell does not exist
-        if (kv == m_cells.end()) {
+        if (neighborKey == m_cells.end()) {
 
           // Create the neighbor cell and put it in the hash table
           Cell * newNeighbor = new Cell{};
@@ -221,7 +221,7 @@ void MacGrid::createBufferZone()
         }
 
         // If the neighbor cell does exist, is not solid, and has layer = -1
-        Cell * neighbor = kv->second;
+        Cell * neighbor = neighborKey->second;
         if (neighbor->material != Material::Solid && neighbor->layer == -1) {
           neighbor->material = Material::Air;
           neighbor->layer = bufferLayer;
