@@ -75,7 +75,10 @@ class MacGrid
     void enforceDirichletBC();
     void transferParticlesToGrid();
     void updateParticleVelocities();
-    void updateParticlePositions(const float deltaTime);
+    void updateParticlePositions(float deltaTime);
+
+    void assignCellIdx3i();
+
 
     // Positional Helpers
 

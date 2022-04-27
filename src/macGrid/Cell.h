@@ -20,7 +20,12 @@ struct Cell
   float oldUY;
   float oldUZ;
 
+  Eigen::Vector3f avgParticleV = Eigen::Vector3f(0,0,0);
+  int particleNums = 0;
+
+
   Eigen::Vector3i cellIndices;
+
   int index;
 
   Material material = Material::Air;
