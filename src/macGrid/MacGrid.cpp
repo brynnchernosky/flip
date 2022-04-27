@@ -152,14 +152,14 @@ void MacGrid::simulate()
     // Calculate and apply external forces
     applyExternalForces(deltaTime);
 
-    // Enforce DBC
-    enforceDirichletBC();
-
     // Given particle positions, update cell materials, neighbors, and layers, then create buffer zone
     createBufferZone();
 
     // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
     updateVelocityFieldByRemovingDivergence();
+
+    // Enforce DBC
+    enforceDirichletBC();
 
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
@@ -468,14 +468,8 @@ void MacGrid::enforceDirichletBC()
 
     Cell * cell = kv->second;
 
-    // Skip air cells
-    if (cell->material == Material::Air) continue;
-
     // Set solid cells' velocities to zero
     if (cell->material == Material::Solid) {
-      cell->ux = 0;
-      cell->uy = 0;
-      cell->uz = 0;
       continue;
     }
 
