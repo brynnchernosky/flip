@@ -89,6 +89,7 @@ class MacGrid
     // Miscellaneous Helpers
 
     void assignParticleCellMaterials(const Material material, const std::vector<Particle *> &particles);
+    void setCellMaterialLayers(const Material material, const int layer);
 
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 };

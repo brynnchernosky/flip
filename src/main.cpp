@@ -84,7 +84,9 @@ int main(int argc, char *argv[])
     grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
     // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
     grid.printGrid();
+    cout << "A" << endl;
     grid.updateVelocityFieldByRemovingDivergence();
+    cout << "B" << endl;
     grid.printGrid();
 
     // ================== END TO DELETE
