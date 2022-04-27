@@ -10,10 +10,11 @@ struct Particle;
 
 struct Cell
 {
+  float pseudoPressure = 0;
+
   float ux;
   float uy;
   float uz;
-  float p;
 
   float oldUX;
   float oldUY;
@@ -22,7 +23,9 @@ struct Cell
   Eigen::Vector3f avgParticleV = Eigen::Vector3f(0,0,0);
   int particleNums = 0;
 
-  Eigen::Vector3i cellIndex;
+
+  Eigen::Vector3i cellIndices;
+
   int index;
 
   Material material = Material::Air;

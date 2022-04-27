@@ -5,14 +5,14 @@
 #include <Eigen/StdVector>
 #include <unordered_map>
 #include <unordered_set>
+#include <QSettings>
 
 using namespace std;
 class Reconstruction
 {
 public:
     Reconstruction();
-    Reconstruction(float grid_spacing, int numOfParticles,
-                   int gridHeight, int gridWidth, int gridLength);
+    Reconstruction(QSettings &settings);
     ~Reconstruction();
 
     /**
