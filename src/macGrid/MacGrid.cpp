@@ -590,7 +590,7 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
   for (int bufferLayer = 1; bufferLayer < max(2, (int) ceil(m_kCFL)); ++bufferLayer) {
     
     // For each cell
-//#pragma omp parallel for
+#pragma omp parallel for
     for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
       
       // Skip if layer != -1
@@ -631,13 +631,13 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
         cell->layer = bufferLayer;
 
         if (m_cells.find(cellIndices + Vector3i(-1, 0, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Material::Fluid)
-        cell->ux = averageX;
+          cell->ux = averageX;
         
         if (m_cells.find(cellIndices + Vector3i(0, -1, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Material::Fluid)
-        cell->uy = averageY;
+          cell->uy = averageY;
         
         if (m_cells.find(cellIndices + Vector3i(0, 0, -1)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Material::Fluid)
-        cell->uz = averageZ;
+          cell->uz = averageZ;
       }
     }
   }
@@ -688,7 +688,7 @@ void MacGrid::transferParticlesToGrid()
       for (int n = 0; n < 2; ++n) {
         for (int l = 0; l < 2; l++) {
           offset = Vector3i(m, n, l);
-          gridV = gridV + m_cells[cell->cellIndices + offset]->avgParticleV;
+          gridV = gridV + 0.125 * m_cells[cell->cellIndices + offset]->avgParticleV;
         }
       }
     }
@@ -732,18 +732,18 @@ void MacGrid::updateParticleVelocities()
     Vector3f weights = Vector3f(idx[0]+1-particlePos[0], idx[1]+1-particlePos[1], idx[2]+1-particlePos[2]);
     // For 2x2 cell neighborhood
     for (int l = 0; l < 2; l++) {
-        for (int m = 0; m < 2; m++) {
-            for (int n = 0; n < 2; n++) {
-                if (l == 1) weights[0] = particlePos[0] - idx[0];
-                if (m == 1) weights[1] = particlePos[1] - idx[1];
-                if (n == 1) weights[2] = particlePos[2] - idx[2];
-                Vector3i offset = Vector3i(l, m, n);
-                // Calculate PIC particle velocity
-                picX = picX + weights[0] * weights[1] * weights[2] * m_cells[gridIdx+offset]->ux;
-                // Calculate FLIP particle velocity
-                flipX = flipX + weights[0] * weights[1] * weights[2] * (m_cells[gridIdx+offset]->ux - m_cells[gridIdx+offset]->oldUX);
-            }
+      for (int m = 0; m < 2; m++) {
+        for (int n = 0; n < 2; n++) {
+          if (l == 1) weights[0] = particlePos[0] - idx[0];
+          if (m == 1) weights[1] = particlePos[1] - idx[1];
+          if (n == 1) weights[2] = particlePos[2] - idx[2];
+          Vector3i offset = Vector3i(l, m, n);
+          // Calculate PIC particle velocity
+          picX = picX + weights[0] * weights[1] * weights[2] * m_cells[gridIdx+offset]->ux;
+          // Calculate FLIP particle velocity
+          flipX = flipX + weights[0] * weights[1] * weights[2] * (m_cells[gridIdx+offset]->ux - m_cells[gridIdx+offset]->oldUX);
         }
+      }
     }
 
     // Interpolate on Y
