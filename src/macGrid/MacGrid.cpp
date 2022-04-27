@@ -694,7 +694,7 @@ void MacGrid::transferParticlesToGrid()
       for (int n = 0; n < 2; ++n) {
         for (int l = 0; l < 2; l++) {
           offset = Vector3i(m, n, l);
-          gridV = gridV + m_cells[cell->cellIndices + offset]->avgParticleV;
+          gridV = gridV + 0.125 * m_cells[cell->cellIndices + offset]->avgParticleV;
         }
       }
     }
