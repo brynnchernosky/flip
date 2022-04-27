@@ -9,8 +9,8 @@
 - Within the MacGrid::simulate() loop:
     - Timestep is calculated based on the CFL condition
     - External forces (gravity) are applied to the grid cells
-    - Dirichlet boundary condition is enforced (velocity field into solids is 0)
     - A buffer zone is created surrounding the fluid
-    - Divergence is removed from the velocity field 
+    - Divergence is removed from the velocity field
+    - Dirichlet boundary condition is enforced (velocity field into solids is 0)
     - Particle positions are updated based on velocity field
     - Occassionally, particle positions are output for conversion into output trimesh
