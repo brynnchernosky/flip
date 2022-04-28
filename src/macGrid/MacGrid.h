@@ -29,6 +29,7 @@ class MacGrid
 
     // Debugging
     void setGridCellVelocity(const Eigen::Vector3i cellIndices, const Eigen::Vector3f velocity1, const Eigen::Vector3f velocity2);
+    void printParticles(std::string output_filepath);
     void addParticle(const Eigen::Vector3f position, const Eigen::Vector3f velocity);
     void printGrid() const;
 

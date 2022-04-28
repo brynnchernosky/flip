@@ -12,7 +12,7 @@ class Reconstruction
 {
 public:
     Reconstruction();
-    Reconstruction(QSettings &settings);
+    Reconstruction(std::string folder);
     ~Reconstruction();
 
     /**
@@ -50,10 +50,17 @@ private:
 
     /**
      * @brief XYZtoGridID - converts xyz coordinates to grid index, for placing points into cells
-     * @param xyz - x,y,z coordinates of the cell
+     * @param xyz - x,y,z coordinates of the particle
      * @return index to the grid vector
      */
     int XYZtoGridID(Eigen::Vector3f xyz);
+
+    /**
+     * @brief GridCornertoGridID - converts grid corner to grid index, for iteration
+     * @param xyz - x,y,z coordinates of the grid corner
+     * @return index to the grid vector
+     */
+    int GridCornertoGridID(Eigen::Vector3i xyz);
 
     /**
      * @brief kernel - kernel function from equation 22
@@ -66,7 +73,6 @@ private:
     float m_searchRadius;
     float m_gridSpacing;
     int m_numOfGrids;
-    int m_numOfParticles;
 
     int m_gridHeight; //corresponds with x
     int m_gridWidth; //corresponds with y

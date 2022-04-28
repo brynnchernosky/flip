@@ -2,14 +2,15 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <stdio.h>
-#include <dirent.h>
+
+#include <QDirIterator>
+#include <QFile>
+#include <QTextStream>
 
 // ================== Constructors
 
 Reconstruction::Reconstruction():
     m_gridSpacing(1),
-    m_numOfParticles(50000),
     m_gridHeight(30),
     m_gridWidth(30),
     m_gridLength(30)
@@ -17,11 +18,12 @@ Reconstruction::Reconstruction():
     init();
 }
 
-Reconstruction::Reconstruction(QSettings &settings)
+Reconstruction::Reconstruction(std::string folder)
 {
+    const std::string configFilepath = folder + "/config.ini";
+    QSettings settings(QString::fromStdString(configFilepath), QSettings::IniFormat);
     settings.beginGroup("/Conversion");
     m_gridSpacing = settings.value("gridSpacing").toFloat();
-    m_numOfParticles = settings.value("numOfParticles").toInt();
     m_gridHeight = settings.value("gridHeight").toInt();
     m_gridWidth = settings.value("gridWidth").toInt();
     m_gridLength = settings.value("gridLength").toInt();
@@ -48,94 +50,76 @@ void Reconstruction::init() {
 // ================== Generate per file SDFs
 
 void Reconstruction::surface_reconstruction(string input_filepath, string output_filepath) {
-    struct dirent *entry;
-    DIR *dp;
+    QDirIterator it(QString::fromStdString(input_filepath), QDir::Files);
+    while(it.hasNext()) {
+        QString filename = it.next();
+        loadParticles(filename.toStdString());
 
-    dp = opendir(input_filepath.data());
-    if (dp == NULL) {
-        std::cerr << "opendir: " << input_filepath << " does not exist or could not be read" << std::endl;
-        return;
-    }
-
-    while((entry = readdir(dp))) {
-        std::string filename(entry->d_name);
-        int period = filename.find(".");
-        std::string out = filename.substr(0, period);
-
-        if (out.size()) {
-            std::string in = input_filepath + "/" + filename;
-            std::cout << "Reading " << in << std::endl;
-
-            loadParticles(in);
-             //Calculate signed distances for all grid corners
-            _gridCorners.clear();
-            _gridCorners.reserve(m_numOfGrids);
-            for (int x = 0; x < m_gridHeight; x++) {
-                for (int y = 0; y < m_gridWidth; y++) {
-                    for (int z = 0; z < m_gridLength; z++) {
-                        float toWrite;
-                        if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
-                            _gridCorners.push_back(toWrite);
-                        } else {
-                            //arbitrary, just needs to be a positive value
-                            //we're not estimating vertex normals with the SDF, we're doing it with topology so actually doesn't matter
-                            _gridCorners.push_back(100);
-                        }
+        _gridCorners.clear();
+        _gridCorners.reserve(m_numOfGrids);
+        for (int x = 0; x < m_gridHeight; x++) {
+            for (int y = 0; y < m_gridWidth; y++) {
+                for (int z = 0; z < m_gridLength; z++) {
+                    float toWrite;
+                    if (calculateSignedDistance(Eigen::Vector3i(x, y, z), toWrite)) {
+                        _gridCorners.push_back(toWrite);
+                    } else {
+                        //arbitrary, just needs to be a positive value
+                        //we're not estimating vertex normals with the SDF, we're doing it with topology so actually doesn't matter
+                        _gridCorners.push_back(100);
                     }
                 }
             }
-
-            out = output_filepath + "/" + out + ".csv";
-            std::cout << "Writing to " << out << std::endl;
-            writeGrid(out);
         }
-    }
 
-    closedir(dp);
-    return;
+        QFileInfo f(filename);
+        std::string out = output_filepath + "/" + f.fileName().toStdString();
+        writeGrid(out);
+    }
 }
 
 // ================== Helpers to calculate SDF
 
 int Reconstruction::XYZtoGridID(Eigen::Vector3f xyz){
-    int x = floor(xyz[0]);
-    int y = floor(xyz[1]);
-    int z = floor(xyz[2]);
+    Eigen::Vector3f regularized = xyz / m_gridSpacing;
+    int x = floor(regularized[0]);
+    int y = floor(regularized[1]);
+    int z = floor(regularized[2]);
 
     return m_gridLength*m_gridWidth*x + m_gridLength*y +z;
 }
 
+int Reconstruction::GridCornertoGridID(Eigen::Vector3i xyz) {
+    return m_gridLength*m_gridWidth*xyz[0] + m_gridLength*xyz[1] + xyz[2];
+}
+
 void Reconstruction::loadParticles(string input_filepath){
+    QFile particle_file(QString::fromStdString(input_filepath));
 
     // open the input file and load into _particles
-    fstream fin;
-    fin.open(input_filepath, ios::in);
-    if(!fin.good()) {
+    if (!particle_file.open(QIODevice::ReadOnly)) {
         std::cerr << input_filepath << " could not be opened" << std::endl;
         return;
     }
 
+    QTextStream in(&particle_file);
+    int num_particles = 0;
     _particles.clear();
-    _particles.reserve(m_numOfParticles);
-    // Read the Data from the file as String Vector vector<string> row;
-    string line, word, temp;
-    //assume every line of .csv file is just particle positions separated by coma
-    for(int i = 0; i < m_numOfParticles; i++){
-        getline(fin, line);
-        stringstream s(line);
+    while (!in.atEnd()) {
+        num_particles ++;
         Eigen::Vector3f particle_pos = Eigen::Vector3f(0,0,0);
-        int j = 0;
-        while (getline(s, word,',')) {
-            particle_pos[j] = stof(word);
-            j++;
-        }
-        particle_pos += m_center;
+        QString line = in.readLine();
+        QStringList positions = line.split(",");
+        particle_pos[0] = positions[0].toFloat();
+        particle_pos[1] = positions[1].toFloat();
+        particle_pos[2] = positions[2].toFloat();
+
+        particle_pos = (particle_pos + m_center);
         _particles.push_back(particle_pos);
     }
 
     m_cellToParticle.clear();
-    //grid index: row-first, then column, then stack
-    for(int i = 0; i < m_numOfParticles; i++){
+    for(int i = 0; i < num_particles; i++){
         int index = XYZtoGridID(_particles[i]);
         if (m_cellToParticle.find(index) != m_cellToParticle.end()) {
             m_cellToParticle[index].insert(i);
@@ -145,37 +129,44 @@ void Reconstruction::loadParticles(string input_filepath){
             m_cellToParticle[index] = setOfParticles;
         }
     }
+
+    particle_file.close();
+
+    std::cout << "Read " << num_particles << " particles from " << input_filepath << std::endl;
 }
 
 void Reconstruction::writeGrid(string output_filepath) {
-    fstream fout;
-    fout.open(output_filepath, ios::out);
-    if(!fout.good()) {
+    QFile sdf_file(QString::fromStdString(output_filepath));
+
+    if (!sdf_file.open(QIODevice::WriteOnly)) {
         std::cerr << output_filepath << " could not be opened" << std::endl;
         return;
     }
+
+    QTextStream fout(&sdf_file);
 
     std::string dimensions =
             std::to_string(m_gridHeight) + ", " +
             std::to_string(m_gridWidth) + ", " +
             std::to_string(m_gridLength);
-    fout << dimensions << std::endl;
+    fout << QString::fromStdString(dimensions) << endl;
 
     for (int x = 0; x < m_gridHeight; x++) {
         for (int y = 0; y < m_gridWidth; y++) {
             for (int z = 0; z < m_gridLength; z++) {
-                Eigen::Vector3f corner(x, y, z);
-                float signed_distance = _gridCorners[XYZtoGridID(corner)];
+                Eigen::Vector3i corner(x, y, z);
+                float signed_distance = _gridCorners[GridCornertoGridID(corner)];
                 std::string toWrite =
                         std::to_string(x) + ", " +
                         std::to_string(y) + ", " +
                         std::to_string(z) + ", " + std::to_string(signed_distance) ;
-                fout << toWrite << std::endl;
+                fout << QString::fromStdString(toWrite) << endl;
             }
         }
     }
 
-    fout.close();
+    std::cout << "Wrote to " << output_filepath << std::endl;
+    sdf_file.close();
 }
 
 float Reconstruction::kernel(float s) {
@@ -195,6 +186,7 @@ bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, float
     int colEnd = min(m_gridLength, grid_corner[2] + 3);
 
     Eigen::Vector3f x_g(grid_corner[0], grid_corner[1], grid_corner[2]);
+    x_g *= m_gridSpacing;
     std::unordered_map<int, double> neighbor_particle_weights; //maps particle_idx to w_i
 
     //Iterate through each cell in a 9x9 block around the given grid corner
@@ -202,7 +194,7 @@ bool Reconstruction::calculateSignedDistance (Eigen::Vector3i grid_corner, float
     for(int i = depthStart; i < depthEnd; i++) {
         for(int j = rowStart; j < rowEnd; j++) {
             for(int k = colStart; k < colEnd; k++) {
-                int idx = XYZtoGridID(Eigen::Vector3f(i, j, k));
+                int idx = GridCornertoGridID(Eigen::Vector3i(i, j, k));
                 std::unordered_set<int> in_cell_particles = m_cellToParticle[idx];
                 for (int particle_idx : in_cell_particles) {
                     Eigen::Vector3f vec = _particles[particle_idx] - x_g;

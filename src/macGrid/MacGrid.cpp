@@ -30,6 +30,27 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 }
 #endif
 
+// Function for QtConcurrent to save files asynchronously
+extern void saveParticles(const string filepath, const vector<const Vector3f> particlePositions) {
+  fstream fout;
+  fout.open(filepath, ios::out);
+
+  if (!fout.good()) {
+    cerr << filepath << " could not be opened" << endl;
+    return;
+  }
+
+  for (const Vector3f &particlePosition : particlePositions) {
+    string toWrite =
+        to_string(particlePosition[0]) + ", " +
+        to_string(particlePosition[1]) + ", " +
+        to_string(particlePosition[2]);
+    fout << toWrite << endl;
+  }
+
+  fout.close();
+}
+
 MacGrid::MacGrid(string folder)
 {
 #if SANITY_CHECKS
@@ -105,30 +126,8 @@ void MacGrid::init()
   // Fluid
   meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
   assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
-  // fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+   fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
   addParticlesToCells(Material::Fluid);
-}
-
-// Function for QtConcurrent to save files asynchronously
-extern void saveParticles(const string filepath, const vector<const Vector3f> particlePositions) {
-
-  fstream fout;
-  fout.open(filepath, ios::out);
-
-  if (!fout.good()) {
-    cerr << filepath << " could not be opened" << endl;
-    return;
-  }
-
-  for (const Vector3f &particlePosition : particlePositions) {
-    string toWrite =
-        to_string(particlePosition[0]) + ", " +
-        to_string(particlePosition[1]) + ", " +
-        to_string(particlePosition[2]);
-    fout << toWrite << endl;
-  }
-
-  fout.close();
 }
 
 void MacGrid::simulate()
@@ -275,6 +274,28 @@ void MacGrid::printGrid() const
     cout << Debug::vectorToString(kv->first) << ": " << Debug::cellToString(kv->second) << endl;
   }
   cout << "Total cells = " << m_cells.size() << endl;
+}
+
+void MacGrid::printParticles(std::string output_filepath) {
+    fstream fout;
+    fout.open(output_filepath, ios::out);
+
+    if (!fout.good()) {
+      cerr << output_filepath << " could not be opened" << endl;
+      return;
+    }
+
+    for (Particle * particle : m_particles) {
+        Eigen::Vector3f particlePosition = particle->position;
+        string toWrite =
+            to_string(particlePosition[0]) + ", " +
+            to_string(particlePosition[1]) + ", " +
+            to_string(particlePosition[2]);
+        fout << toWrite << endl;
+    }
+
+    std::cout << "Wrote to " << output_filepath << std::endl;
+    fout.close();
 }
 
 // ================== Initialization Helpers

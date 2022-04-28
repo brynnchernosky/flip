@@ -52,7 +52,7 @@ def main(args):
             print("Reading", input_sdf)
             fin = open(input_sdf, "r")
             vertices, triangles = generate_mesh(fin)
-
+            fin.close()
             name = filename.split('.')[0]
             output_filepath = os.path.join(output_folder, name) + ".obj"
 
