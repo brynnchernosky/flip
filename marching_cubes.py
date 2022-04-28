@@ -60,6 +60,8 @@ def main(args):
             mesh.vertices = o3d.utility.Vector3dVector(np.asarray(vertices))
             mesh.triangles = o3d.utility.Vector3iVector(np.asarray(triangles))
             mesh.compute_vertex_normals()
+            normals = np.asarray(mesh.vertex_normals)
+            mesh.vertex_normals = o3d.utility.Vector3dVector(np.array(normals))
             o3d.io.write_triangle_mesh(output_filepath, mesh)
             o3d.visualization.draw_geometries([mesh])
 

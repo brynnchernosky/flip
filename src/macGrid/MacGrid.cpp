@@ -30,27 +30,6 @@ inline void assertCellWithinBounds(const Vector3f position, const Vector3f corne
 }
 #endif
 
-// Function for QtConcurrent to save files asynchronously
-extern void saveParticles(const string filepath, const vector<const Vector3f> particlePositions) {
-  fstream fout;
-  fout.open(filepath, ios::out);
-
-  if (!fout.good()) {
-    cerr << filepath << " could not be opened" << endl;
-    return;
-  }
-
-  for (const Vector3f &particlePosition : particlePositions) {
-    string toWrite =
-        to_string(particlePosition[0]) + ", " +
-        to_string(particlePosition[1]) + ", " +
-        to_string(particlePosition[2]);
-    fout << toWrite << endl;
-  }
-
-  fout.close();
-}
-
 MacGrid::MacGrid(string folder)
 {
 #if SANITY_CHECKS
@@ -128,6 +107,27 @@ void MacGrid::init()
   assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
    fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
   addParticlesToCells(Material::Fluid);
+}
+
+// Function for QtConcurrent to save files asynchronously
+extern void saveParticles(const string filepath, const vector<const Vector3f> particlePositions) {
+  fstream fout;
+  fout.open(filepath, ios::out);
+
+  if (!fout.good()) {
+    cerr << filepath << " could not be opened" << endl;
+    return;
+  }
+
+  for (const Vector3f &particlePosition : particlePositions) {
+    string toWrite =
+        to_string(particlePosition[0]) + ", " +
+        to_string(particlePosition[1]) + ", " +
+        to_string(particlePosition[2]);
+    fout << toWrite << endl;
+  }
+
+  fout.close();
 }
 
 void MacGrid::simulate()

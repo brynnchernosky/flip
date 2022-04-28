@@ -80,15 +80,15 @@ int main(int argc, char *argv[])
 
     // ================== TO DELETE
 
-//    grid.init();
-//    grid.createBufferZone();
-//    grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
-//    // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
-//    grid.printGrid();
-//    cout << "A" << endl;
-//    grid.updateVelocityFieldByRemovingDivergence();
-//    cout << "B" << endl;
-//    grid.printGrid();
+    grid.init();
+    grid.createBufferZone();
+    grid.setGridCellVelocity({1, 1, 1}, {1, 1, 1}, {1, 1, 1}); // Expected velocity: all zero
+    // grid.setGridCellVelocity({1, 1, 1}, {3, 1, 1}, {-1, 1, 1}); // Expected velocity: only two ux non-zero, 2 and -2
+    grid.printGrid();
+    cout << "A" << endl;
+    grid.updateVelocityFieldByRemovingDivergence();
+    cout << "B" << endl;
+    grid.printGrid();
 
     // ================== END TO DELETE
 
@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 
   } else if (method == "test") {
       Testing::testMeshParticleMesh(folder);
+
   } else {
 
     cout << "Error: unknown method!" << endl;
