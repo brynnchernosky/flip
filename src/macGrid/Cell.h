@@ -12,13 +12,9 @@ struct Cell
 {
   float pseudoPressure = 0;
 
-  float ux = 0;
-  float uy = 0;
-  float uz = 0;
+  Eigen::Vector3f u = Eigen::Vector3f::Zero();
 
-  float oldUX = 0;
-  float oldUY = 0;
-  float oldUZ = 0;
+  Eigen::Vector3f old_u = Eigen::Vector3f::Zero();
 
   Eigen::Vector3f avgParticleV = Eigen::Vector3f::Zero();
   int particleNums = -1;
