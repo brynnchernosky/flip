@@ -460,7 +460,7 @@ void MacGrid::applyExternalForces(const float deltaTime)
   }
 }
 
-// Sets the velocity field into and out of solid cells to zero 
+// Sets the velocity field into solid cells to zero
 void MacGrid::enforceDirichletBC()
 {
 #pragma omp parallel for
