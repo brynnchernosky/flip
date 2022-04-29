@@ -17,6 +17,7 @@ win32 {
 
 SOURCES += \
     libs/glew-1.10.0/src/glew.c \
+    src/testing.cpp \
     src/view.cpp \
     src/flip.cpp \
     src/main.cpp \
@@ -42,6 +43,7 @@ HEADERS += \
     src/graphics/shape.h \
     src/graphics/MeshLoader.h \
     src/mainwindow.h \
+    src/testing.h \
     src/view.h \
     src/viewformat.h \
     src/graphics/Shader.h \

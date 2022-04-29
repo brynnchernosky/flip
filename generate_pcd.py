@@ -15,17 +15,17 @@ def parseArguments():
     # Arguments per each object type 
     parser.add_argument("--sphere", action="store_true")
     parser.add_argument("--sphere_points", type=int, default=50000)
-    parser.add_argument("--sphere_radius", type=int, default=8)
+    parser.add_argument("--sphere_radius", type=int, default=1)
 
     parser.add_argument("--cylinder", action="store_true")
     parser.add_argument("--cylinder_points", type=int, default=50000)
-    parser.add_argument("--cylinder_radius", type=int, default=8)
-    parser.add_argument("--cylinder_height", type=int, default=16)
+    parser.add_argument("--cylinder_radius", type=int, default=1)
+    parser.add_argument("--cylinder_height", type=int, default=2)
 
     parser.add_argument("--cone", action="store_true")
     parser.add_argument("--cone_points", type=int, default=50000)
-    parser.add_argument("--cone_radius", type=int, default=8)
-    parser.add_argument("--cone_height", type=int, default=16)
+    parser.add_argument("--cone_radius", type=int, default=1)
+    parser.add_argument("--cone_height", type=int, default=2)
 
     parser.add_argument("--everything", action="store_true")
     args = parser.parse_args()
@@ -37,7 +37,7 @@ def sphere(num_points, radius):
     while current_points < num_points:
         sampled_point = np.random.uniform(-radius, radius, size=(1, 3))
         distance = np.linalg.norm(sampled_point)
-        if distance < 8:
+        if distance < radius:
             points = np.append(points, sampled_point, axis=0)
             current_points += 1
     return points
@@ -99,9 +99,9 @@ def main(args):
         fout = open(filepath, "w")
         sphere_points = sphere(args.sphere_points, args.sphere_radius)
         cylinder_points = cylinder(args.cylinder_points, args.cylinder_radius, args.cylinder_height)
-        cylinder_points += np.array([20, 0, 0])
+        cylinder_points += np.array([3, 0, 0])
         cone_points = cone(args.cone_points, args.cone_radius, args.cone_height)
-        cone_points += np.array([-20, 0, 0])
+        cone_points += np.array([-3, 0, 0])
         points = np.append(sphere_points, cylinder_points, axis = 0)
         points = np.append(points, cone_points, axis = 0)
         write_points(fout, points)

@@ -11,6 +11,7 @@
 
 #include "reconstruction.h"
 #include "macGrid/MacGrid.h"
+#include <testing.h>
 
 using namespace std;
 using namespace Eigen;
@@ -48,12 +49,12 @@ int main(int argc, char *argv[])
     a.exit();
     return 1;
   }
-  const string method = "simulate";              // args[0].toStdString();
-  const string folder = "results/workingFolder"; // args[1].toStdString();
+  const string method = args[0].toStdString();
+  const string folder = args[1].toStdString();
 
   // Panic if the config file does not exist in the specified folder
   const string configFilepath = folder + "/config.ini";
-  if (isInvalidPath("config file", true, configFilepath)) {
+  if (isInvalidPath(configFilepath, true, configFilepath)) {
     a.exit();
     return 1;
   }
@@ -104,9 +105,11 @@ int main(int argc, char *argv[])
       QDir().mkdir(QString::fromStdString(sdfFilepath));
     }
 
-    QSettings settings(QString::fromStdString(configFilepath), QSettings::IniFormat);
-    Reconstruction converter(settings);
+    Reconstruction converter(folder);
     converter.surface_reconstruction(particleFilepath, sdfFilepath);
+
+  } else if (method == "test") {
+      Testing::testMeshParticleMesh(folder);
 
   } else {
 

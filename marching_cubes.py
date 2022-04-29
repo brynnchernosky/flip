@@ -52,7 +52,7 @@ def main(args):
             print("Reading", input_sdf)
             fin = open(input_sdf, "r")
             vertices, triangles = generate_mesh(fin)
-
+            fin.close()
             name = filename.split('.')[0]
             output_filepath = os.path.join(output_folder, name) + ".obj"
 
@@ -60,6 +60,8 @@ def main(args):
             mesh.vertices = o3d.utility.Vector3dVector(np.asarray(vertices))
             mesh.triangles = o3d.utility.Vector3iVector(np.asarray(triangles))
             mesh.compute_vertex_normals()
+            normals = np.asarray(mesh.vertex_normals)
+            mesh.vertex_normals = o3d.utility.Vector3dVector(np.array(normals))
             o3d.io.write_triangle_mesh(output_filepath, mesh)
             o3d.visualization.draw_geometries([mesh])
 
