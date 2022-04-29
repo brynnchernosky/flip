@@ -12,21 +12,21 @@ struct Cell
 {
   float pseudoPressure = 0;
 
-  float ux;
-  float uy;
-  float uz;
+  float ux = 0;
+  float uy = 0;
+  float uz = 0;
 
-  float oldUX;
-  float oldUY;
-  float oldUZ;
+  float oldUX = 0;
+  float oldUY = 0;
+  float oldUZ = 0;
 
-  Eigen::Vector3f avgParticleV = Eigen::Vector3f(0,0,0);
-  int particleNums = 0;
+  Eigen::Vector3f avgParticleV = Eigen::Vector3f::Zero();
+  int particleNums = -1;
 
 
-  Eigen::Vector3i cellIndices;
+  Eigen::Vector3i cellIndices = Eigen::Vector3i::Zero();
 
-  int index;
+  int index = -1;
 
   Material material = Material::Air;
   int layer = -1;
