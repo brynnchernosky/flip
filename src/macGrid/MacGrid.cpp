@@ -734,35 +734,35 @@ void MacGrid::transferParticlesToGrid()
 float MacGrid::getInterpolatedValue(float x, float y, float z, int index) {
   int i = floor(x);
   int j = floor(y);
-  int j = floor(z);
+  int k = floor(z);
   if (index == 0) {
-  return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
-    (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->ux;
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
+    return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
+      (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
+      (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
+      (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
+      (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
+      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
+      (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
+      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux;
  } else if (index == 1) {
-  return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
-    (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->uy;
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
+    return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
+      (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
+      (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
+      (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
+      (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
+      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
+      (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
+      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy;
  } else {
-  return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
-    (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->uz;
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz + 
-}
+    return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
+      (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
+      (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
+      (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
+      (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
+      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
+      (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
+      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz; 
+    }
 }
 
 // Sets particle velocities based on their positions and the velocity field
@@ -781,8 +781,8 @@ void MacGrid::updateParticleVelocities()
     const Vector3f regularizedParticlePosition = particlePosition / m_cellWidth;
     
     Vector3i idx;
-    float picX, picY, picZ = 0;
-    float flipX, flipY, flipZ = 0;
+    float picX = 0, picY = 0, picZ = 0;
+    float flipX = 0, flipY = 0, flipZ = 0;
 
     // Interpolate on X
     const Vector3f particlePosX = regularizedParticlePosition - Vector3f(0, 0.5, 0.5);
