@@ -76,6 +76,7 @@ class MacGrid
     void enforceDirichletBC();
     void transferParticlesToGrid();
     void updateParticleVelocities();
+    float getInterpolatedValue(float x, float y, float z, int index);
     void updateParticlePositions(float deltaTime);
 
     void assignCellIdx3i();
