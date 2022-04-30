@@ -41,6 +41,7 @@ class MacGrid
     std::string m_outputFolder;
 
     float m_cellWidth;
+    int   m_strata;
     float m_maxAverageSurfaceParticlesPerCellFaceArea; // surfaceParticles.size() <= this * surfaceArea
     float m_maxAverageSurfaceParticlesPerArea;
     Eigen::Vector3i m_cellCount;

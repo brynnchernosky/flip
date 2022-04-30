@@ -43,6 +43,7 @@ MacGrid::MacGrid(string folder)
   m_outputFolder = folder + "/particles";
 
   m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+  m_strata = settings.value(QString("strata")).toFloat();
 
   m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
   m_maxAverageSurfaceParticlesPerArea         = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
@@ -444,26 +445,33 @@ void MacGrid::fillGridCellsRecursive(const Material material, const int layerNum
 
 // Given a material, populates all cells with that material with particles using stratified sampling
 void MacGrid::addParticlesToCells(const Material material) {
-  const int strata = 2;           // number of subdivisions per side, such that there are strata^3 subcells per cell
-  const int samplesPerStrata = 1; // number of particles per subcell
-  const float strataWidth = m_cellWidth / strata;
+
+  // Note: m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
+  const float strataWidth = m_cellWidth / m_strata;
+
+  // For each cell
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material != material) {
-      continue;
-    }
-    for (int x = 0; x < strata; x++) {
-      for (int y = 0; y < strata; y++) {
-        for (int z = 0; z < strata; z++) {
-          for (int sample = 0; sample < samplesPerStrata; ++sample) {
-            const float a = getRandomFloat();
-            const float b = getRandomFloat();
-            const float c = getRandomFloat();
-            Vector3f position = indicesToBasePosition(i->first) + Vector3f(x+a, y+b, z+c) * strataWidth;
-            Particle * newParticle = new Particle{nullptr, position, Vector3f::Zero()};
-            assert(positionToIndices(position) == i->first);
-            m_particles.push_back(newParticle);
-          }
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+
+    const Vector3i cellIndices = i->first;
+    Cell * cell = i->second;
+
+    // Skip if the cell is of the wrong material
+    if (cell->material != material) continue;
+
+    // Do stratified sampling
+    for (int x = 0; x < m_strata; ++x) {
+      for (int y = 0; y < m_strata; ++y) {
+        for (int z = 0; z < m_strata; ++z) {
+
+          // Get offsets
+          const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
+
+          // Create a new particle
+          Particle * newParticle = new Particle{}
+          newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
+          assert(positionToIndices(position) == cellIndices);
+          m_particles.push_back(newParticle);
         }
       }
     }
