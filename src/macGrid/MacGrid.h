@@ -85,6 +85,7 @@ class MacGrid
 
     // Positional Helpers
 
+    const Eigen::Vector3f toRegularizedPosition  (const Eigen::Vector3f &position)    const;
     const Eigen::Vector3i positionToIndices      (const Eigen::Vector3f &position)    const;
     const Eigen::Vector3f indicesToBasePosition  (const Eigen::Vector3i &cellIndices) const;
     const Eigen::Vector3f indicesToCenterPosition(const Eigen::Vector3i &cellIndices) const;

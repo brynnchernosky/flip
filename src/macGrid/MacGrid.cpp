@@ -883,10 +883,16 @@ void MacGrid::updateParticlePositions(const float deltaTime)
 
 // ================== Positional Helpers
 
+// Given a position, regularizes it in the grid space
+const Vector3f MacGrid::toRegularizedPosition(const Vector3f &position) const
+{
+  return (position - m_cornerPosition) / m_cellWidth;
+}
+
 // Given a position, returns the indices of the cell which would contain it
 const Vector3i MacGrid::positionToIndices(const Vector3f &position) const
 {
-  const Vector3f regularizedPosition = (position - m_cornerPosition) / m_cellWidth;
+  const Vector3f regularizedPosition = toRegularizedPosition(position);
 
   return Vector3i(floor(regularizedPosition[0]),
       floor(regularizedPosition[1]),
