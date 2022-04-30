@@ -73,15 +73,12 @@ class MacGrid
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
 
     float calculateDeltaTime();
-    float getInterpolatedValue(float x, float y, float z, int index);
     void  applyExternalForces(const float deltaTime);
     void  enforceDirichletBC();
     void  transferParticlesToGrid();
     void  updateParticleVelocities();
+    std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
     void updateParticlePositions(float deltaTime);
-
-    void assignCellIdx3i();
-
 
     // Positional Helpers
 

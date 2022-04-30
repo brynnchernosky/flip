@@ -166,13 +166,19 @@ void MacGrid::simulate()
     applyExternalForces(deltaTime);
     cout << "∟ applied external forces to " << m_cells.size() << " cells" << endl;
 
+    printGrid();
+
     // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
     updateVelocityFieldByRemovingDivergence();
     cout << "∟ updated velocity field by removing divergence" << endl;
 
+    printGrid();
+
     // Enforce DBC
     enforceDirichletBC();
     cout << "∟ enforced dirichlet boundary condition" << endl;
+
+    printGrid();
 
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
@@ -541,18 +547,26 @@ void MacGrid::enforceDirichletBC()
 #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
 
+    const Vector3i cellIndices = kv->first;
     Cell * cell = kv->second;
 
-    // Set solid cells' velocities to zero
-    if (cell->material == Material::Solid) continue;
+    // Skip if cell is not solid
+    if (cell->material != Material::Solid) continue;
 
-    // Set fluid-solid boundary velocities to zero (this is safe due to the buffer layer around the fluid)
-    auto a = m_cells.find(kv->first + Vector3i(-1, 0, 0));
-    if (a != m_cells.end() && a->second->material == Solid) kv->second->u[0] = 0;
-    auto b = m_cells.find(kv->first + Vector3i(0, -1, 0));
-    if (b != m_cells.end() && b->second->material == Solid) kv->second->u[1] = 0;
-    auto c = m_cells.find(kv->first + Vector3i(0, 0, -1));
-    if (c != m_cells.end() && c->second->material == Solid) kv->second->u[2] = 0;
+    // Prevent flow into solid
+
+    cell->u = Vector3f(min(0.f, cell->u[0]),
+                       min(0.f, cell->u[1]),
+                       min(0.f, cell->u[2]));
+
+    auto xMaxKV = m_cells.find(cellIndices + Vector3i(1, 0, 0));
+    if (xMaxKV != m_cells.end()) xMaxKV->second->u[0] = max(0.f, xMaxKV->second->u[0]);
+
+    auto yMaxKV = m_cells.find(cellIndices + Vector3i(0, 1, 0));
+    if (yMaxKV != m_cells.end()) yMaxKV->second->u[1] = max(0.f, yMaxKV->second->u[1]);
+
+    auto zMaxKV = m_cells.find(cellIndices + Vector3i(0, 0, 1));
+    if (zMaxKV != m_cells.end()) zMaxKV->second->u[2] = max(0.f, zMaxKV->second->u[2]);
   }
 }
 
@@ -714,27 +728,26 @@ void MacGrid::transferParticlesToGrid()
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     Cell * cell = i->second;
-    cell->avgParticleV = Vector3f::Zero();
-    cell->particleNums = 0;
+    cell->temp_avgParticleV = Vector3f::Zero();
+    cell->temp_particleNums = 0;
   }
   
-  // Accumulate cells' particle numbers and average velocities
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * const particle = m_particles[i];
-    const Vector3f offset = Vector3f(0.5, 0.5, 0.5);
-    Vector3i belongingCell = positionToIndices(particle->position + offset);
+  // Accumulate cells' particle numbers and velocities
+  const Vector3f offset = Vector3f(0.5, 0.5, 0.5);
+  for (Particle * const particle : m_particles) {
+    const Vector3i belongingCell = positionToIndices(particle->position + offset);
+#if SANITY_CHECKS
     assert(m_cells.find(belongingCell) != m_cells.end());
-    m_cells[belongingCell]->avgParticleV = m_cells[belongingCell]->avgParticleV + particle->velocity;
-    m_cells[belongingCell]->particleNums = m_cells[belongingCell]->particleNums + 1;
+#endif
+    m_cells[belongingCell]->temp_avgParticleV += particle->velocity;
+    m_cells[belongingCell]->temp_particleNums += 1;
   }
   
   // Average velocities
 #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     Cell * cell = i->second;
-    if (cell->particleNums > 0) {
-      cell->avgParticleV /= cell->particleNums;
-    }
+    if (cell->temp_particleNums != 0) cell->temp_avgParticleV /= cell->temp_particleNums;
   }
   
   // Do trilinear interpolation
@@ -761,47 +774,9 @@ void MacGrid::transferParticlesToGrid()
     }
 
     // Save cell's velocities
-    cell->u[0] = gridV[0];
-    cell->u[1] = gridV[1];
-    cell->u[2] = gridV[2];
-    cell->old_u[0] = gridV[0];
-    cell->old_u[1] = gridV[1];
-    cell->old_u[2] = gridV[2];
+    cell->u    = gridV;
+    cell->oldU = gridV;
   }
-}
-
-float MacGrid::getInterpolatedValue(float x, float y, float z, int index) {
-  int i = floor(x);
-  int j = floor(y);
-  int k = floor(z);
-  if (index == 0) {
-    return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->u[0] +
-      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[0];
- } else if (index == 1) {
-    return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->u[1] +
-      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[1];
- } else {
-    return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->u[2] +
-      (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->u[2];
-    }
 }
 
 // Sets particle velocities based on their positions and the velocity field
@@ -815,43 +790,72 @@ void MacGrid::updateParticleVelocities()
   for (unsigned int particleIndex = 0; particleIndex < m_particles.size(); ++particleIndex) {
 
     Particle * particle = m_particles[particleIndex];
-    const Vector3f particlePosition = particle->position;
-    const Vector3i cellIndices = positionToIndices(particle->position);
-    const Vector3f regularizedParticlePosition = particlePosition / m_cellWidth;
-    
-    Vector3i idx;
-    Vector3f pic = Vector3f::Zero();
+
+    cout << "Before: " << Debug::particleToString(particle) << endl;
+
+    Vector3f pic  = Vector3f::Zero();
     Vector3f flip = Vector3f::Zero();
 
-    std::vector<Vector3f> offsets = {Vector3f(0, 0.5, 0.5), Vector3f(0.5, 0, 0.5), Vector3f(0.5, 0.5, 0)};
-    // Interpolate on X, Y, Z
-    for (int index = 0; index < 3; index++) {
-        const Vector3f particlePos = regularizedParticlePosition - offsets[index];
-        idx = Vector3i(floor(particlePos[0]), floor(particlePos[1]), floor(particlePos[2]));
-        // For 2x2 cell neighborhood
-        for (int l = 0; l < 2; l++) {
-          for (int m = 0; m < 2; m++) {
-            for (int n = 0; n < 2; n++) {
-              Vector3f weights = idx.cast<float>() - particlePos + Vector3f::Ones();
-              if (l == 1) weights[0] = particlePos[0] - idx[0];
-              if (m == 1) weights[1] = particlePos[1] - idx[1];
-              if (n == 1) weights[2] = particlePos[2] - idx[2];
-              Vector3i offset = Vector3i(l, m, n);
-              // Calculate PIC particle velocity
-              pic[index] += weights[0] * weights[1] * weights[2] * m_cells[cellIndices+offset]->u[index];
-              // Calculate FLIP particle velocity
-              flip[index] += weights[0] * weights[1] * weights[2] * (m_cells[cellIndices+offset]->u[index] - m_cells[cellIndices+offset]->old_u[index]);
-            }
-          }
-        }
+    const Vector3f position = particle->position;
+    const Vector3f regularizedPosition = toRegularizedPosition(position);
+
+    // For each component of velocity
+    for (int index = 0; index < 3; ++index) {
+
+      // Get the regularized position to interpolate this component of velocity from
+      const Vector3f xyz = regularizedPosition - INTERP_OFFSETS[index];
+
+      // Get PIC and FLIP values from grid
+      pair<float, float> pf = getInterpolatedPICAndFLIP(xyz, index);
+      pic[index]  = pf.first;
+      flip[index] = pf.second;
     }
 
-    cout << "pic  " << Debug::vectorToString(pic) << endl;
-    cout << "flip " << Debug::vectorToString(flip) << endl;
+    cout << "pic " << Debug::vectorToString(pic) << ", flip " << Debug::vectorToString(flip) << endl;
 
     // Update particle with interpolated PIC/FLIP velocities
-    particle->velocity = m_interpolationCoefficient * pic + (1 - m_interpolationCoefficient) * (particle->velocity + flip);
+    particle->velocity = pic; // m_interpolationCoefficient * pic + (1 - m_interpolationCoefficient) * (particle->velocity + flip);
+
+    cout << "After: " << Debug::particleToString(particle) << endl;
   }
+}
+
+// Helper for the above
+pair<float, float> MacGrid::getInterpolatedPICAndFLIP(const Vector3f &xyz, const int index) const
+{
+  float p = 0, f = 0;
+
+  // Get stuff for weight calculation
+  const Vector3i ijk = Vector3i(floor(xyz[0]), floor(xyz[1]), floor(xyz[2]));
+
+  // For a 2x2 cell neighborhood around xyz
+  for (int l = 0; l < 2; ++l) {
+    for (int m = 0; m < 2; ++m) {
+      for (int n = 0; n < 2; ++n) {
+
+        // Get cell
+        const Vector3i offset(l, m, n);
+        const Vector3i sum = ijk + offset;
+        // cout << "- ijk    = " << Debug::vectorToString(ijk) << endl;
+        // cout << "- offset = " << Debug::vectorToString(offset) << endl;
+        cout << "- sum    = " << Debug::vectorToString(sum) << endl;
+        assert(m_cells.find(sum) != m_cells.end());
+        Cell * const cell = m_cells.at(sum);
+
+        // Get weights
+        Vector3f weights = ijk.cast<float>() + Vector3f::Ones() - xyz;
+        if (l == 1) weights[0] = xyz[0] - ijk[0];
+        if (m == 1) weights[1] = xyz[1] - ijk[1];
+        if (n == 1) weights[2] = xyz[2] - ijk[2];
+
+        // Add to PIC and FLIP particle velocities
+        p += weights[0] * weights[1] * weights[2] * cell->u[index];
+        f += weights[0] * weights[1] * weights[2] * (cell->u[index] - cell->oldU[index]);
+      }
+    }
+  }
+
+  return {p, f};
 }
 
 // Sets particle positions based on their velocities
@@ -867,7 +871,7 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     particle->oldPosition = particle->position;
     particle->position    = particle->position + particle->velocity*deltaTime*0.5;
 
-    // Todo: Resolve collisions by moving the particle out of the solid cell
+    // Resolve collisions by moving the particle out of the solid cell
     Vector3i newIndices = positionToIndices(particle->position);
     if (m_cells[newIndices]->material == Material::Solid) {
       const Vector3i oldIndices = positionToIndices(particle->oldPosition);
@@ -937,24 +941,30 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
     // If cell does not exist
     if (kv == m_cells.end()) {
       
-      // If cell is within simulation bounds
-      if (withinBounds(cellIndices)) {
-
-        // Create the cell and put it in the hash table
-        Cell * newCell = new Cell{};
-        newCell->cellIndices = cellIndices;
-        m_cells.insert({cellIndices, newCell});
-
-        // Set its material and layer
-        newCell->material = material;
+      // If cell is outside simulation bounds
+      if (!withinBounds(cellIndices)) {
+        cout << "particle outside bounds!" << endl;
+        continue;
       }
+
+      // Create the cell and put it in the hash table
+      Cell * newCell = new Cell{};
+      newCell->cellIndices = cellIndices;
+      m_cells.insert({cellIndices, newCell});
+
+      // Set its material
+      newCell->material = material;
 
       continue;
     }
 
     // If cell does exist, and is not solid
     Cell * cell = kv->second;
-    if (cell->material != Material::Solid) cell->material = material;
+    if (cell->material != Material::Solid) {
+      cell->material = material;
+    } else {
+      cout << "particle in solid!" << endl;
+    }
   }
 }
 
