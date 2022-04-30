@@ -14,6 +14,7 @@ using namespace Eigen;
 typedef Triplet<float> T;
 
 const vector<const Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+const vector<const Vector3f> INTERP_OFFSETS = {{0, 0.5, 0.5}, {0.5, 0, 0.5}, {0.5, 0.5, 0}};
 
 #define SANITY_CHECKS false
 #if SANITY_CHECKS
@@ -167,7 +168,7 @@ void MacGrid::simulate()
 
     // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
     updateVelocityFieldByRemovingDivergence();
-    cout << "∟ updated velocity field By removing divergence" << endl;
+    cout << "∟ updated velocity field by removing divergence" << endl;
 
     // Enforce DBC
     enforceDirichletBC();
@@ -199,6 +200,13 @@ void MacGrid::simulate()
 // Sets up fluid cells and a buffer zone around them, based on the particles' positions
 void MacGrid::createBufferZone()
 {
+  // Set all fluid cells to air
+#pragma omp parallel for
+  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+    Cell * cell = kv->second;
+    if (cell->material == Material::Fluid) cell->material = Material::Air;
+  }
+
   // Update grid cells that currently have fluid in them
   assignParticleCellMaterials(Material::Fluid, m_particles);
 
@@ -215,16 +223,22 @@ void MacGrid::createBufferZone()
       const Vector3i cellIndices = kv->first;
       Cell * cell = kv->second;
 
-      // Skip if it's not a fluid/air cell with layer = bufferLayer - 1
-      if (cell->material == Material::Solid || cell->layer != bufferLayer - 1) continue;
+      // Skip if its layer != bufferLayer - 1
+      if (cell->layer != bufferLayer - 1) continue;
+
+      // If it's a solid cell, set its layer and move on
+      if (cell->material == Material::Solid) {
+        cell->layer = bufferLayer;
+        continue;
+      }
 
       // For each of its six neighbor cells
       for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
         const Vector3i neighborIndices = cellIndices + neighborOffset;
-        auto neighborKey = m_cells.find(neighborIndices);
+        auto neighborKV = m_cells.find(neighborIndices);
 
         // If the neighbor cell does not exist
-        if (neighborKey == m_cells.end()) {
+        if (neighborKV == m_cells.end()) {
 
           // Create the neighbor cell and put it in the hash table
           Cell * newNeighbor = new Cell{};
@@ -238,18 +252,33 @@ void MacGrid::createBufferZone()
           continue;
         }
 
-        // If the neighbor cell does exist, is not solid, and has layer = -1
-        Cell * neighbor = neighborKey->second;
-        if (neighbor->material != Material::Solid && neighbor->layer == -1) {
-          neighbor->material = Material::Air;
+        // If the neighbor cell does exist
+        Cell * neighbor = neighborKV->second;
+
+        // If the neighbor's layer and material haven't been set yet
+        if (neighbor->layer == -1) {
           neighbor->layer = bufferLayer;
-        }
+          if (neighbor->material != Material::Solid) neighbor->material = Material::Air;
+        } 
       }
     }
   }
+
+  // Set particles' cells
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     m_particles[i]->cell = m_cells[positionToIndices(m_particles[i]->position)];
+  }
+  
+  // Delete all cells with layer == -1
+  auto kv = m_cells.cbegin();
+  while (kv != m_cells.cend()) {
+    if (kv->second->layer == -1) {
+      delete kv->second;
+      kv = m_cells.erase(kv);
+    } else {
+      ++kv;
+    }
   }
 }
 
