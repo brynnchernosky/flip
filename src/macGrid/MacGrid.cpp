@@ -10,9 +10,10 @@
 
 using namespace std;
 using namespace Eigen;
+
 typedef Triplet<float> T;
 
-const vector<Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+const vector<const Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 
 #define SANITY_CHECKS false
 #if SANITY_CHECKS
@@ -162,16 +163,16 @@ void MacGrid::simulate()
 
     // Calculate and apply external forces to velocity field
     applyExternalForces(deltaTime);
-    cout << "∟ apply external forces to " << m_cells.size() << " cells" << endl;
+    cout << "∟ applied external forces to " << m_cells.size() << " cells" << endl;
 
     // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
     updateVelocityFieldByRemovingDivergence();
-    cout<< "∟ updated velocity field By removing divergence"<<endl;
+    cout << "∟ updated velocity field By removing divergence" << endl;
 
     // Enforce DBC
     enforceDirichletBC();
     cout << "∟ enforced dirichlet boundary condition" << endl;
-    
+
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
     cout << "∟ updated particle positions" << endl;
@@ -247,7 +248,7 @@ void MacGrid::createBufferZone()
     }
   }
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); i++) {
+  for (unsigned int i = 0; i < m_particles.size(); ++i) {
     m_particles[i]->cell = m_cells[positionToIndices(m_particles[i]->position)];
   }
 }
@@ -468,9 +469,9 @@ void MacGrid::addParticlesToCells(const Material material) {
           const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
 
           // Create a new particle
-          Particle * newParticle = new Particle{}
+          Particle * newParticle = new Particle{};
           newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
-          assert(positionToIndices(position) == cellIndices);
+          assert(positionToIndices(newParticle->position) == cellIndices);
           m_particles.push_back(newParticle);
         }
       }
@@ -500,12 +501,9 @@ void MacGrid::applyExternalForces(const float deltaTime)
 {
   const Vector3f gravityDeltaV = m_gravityVector * deltaTime;
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    i->second->u[0] += gravityDeltaV[0];
-    i->second->u[1] += gravityDeltaV[1];
-    i->second->u[2] += gravityDeltaV[2];
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+    i->second->u += gravityDeltaV;
   }
-  cout << "gravity " << gravityDeltaV << endl; 
 }
 
 // Sets the velocity field into solid cells to zero 
@@ -537,7 +535,7 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
 
   // Number all fluid cells
   int numFluidCells = 0;
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     if (i->second->material == Fluid) {
       i->second->index = numFluidCells;
       numFluidCells++;
@@ -553,11 +551,12 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
 
   // Fill A and b arrays by iterating over all fluid cells
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
 
-    // Skip if non-fluid
     const Vector3i cellIndices = i->first;
     const Cell * cell = i->second;
+
+    // Skip if the cell is non-fluid
     if (cell->material != Fluid) continue;
 
     // Fill this row of the A matrix (coefficients)
@@ -587,11 +586,12 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
 
   // Use pseudo-pressures to correct velocities
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
 
-    // Skip if non-fluid
     const Vector3i cellIndices = i->first;
     Cell * cell = i->second;
+
+    // Skip if the cell is non-fluid
     if (cell->material != Fluid) continue;
 
     // Update velocity based on pseudopressure
@@ -683,7 +683,7 @@ void MacGrid::transferParticlesToGrid()
 {
   // Zero out cells' particle numbers and average velocities
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     Cell * cell = i->second;
     cell->avgParticleV = Vector3f::Zero();
     cell->particleNums = 0;
@@ -701,7 +701,7 @@ void MacGrid::transferParticlesToGrid()
   
   // Average velocities
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     Cell * cell = i->second;
     if (cell->particleNums > 0) {
       cell->avgParticleV /= cell->particleNums;
@@ -710,10 +710,12 @@ void MacGrid::transferParticlesToGrid()
   
   // Do trilinear interpolation
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-
-    // Skip non-fluid cells
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+    
+    const Vector3i cellIndices = i->first;
     Cell * cell = i->second;
+    
+    // Skip if the cell is non-fluid
     if (cell->material != Material::Fluid) continue;
 
     Vector3i offset = Vector3i::Zero();
@@ -722,9 +724,9 @@ void MacGrid::transferParticlesToGrid()
     // Transfer particle velocity to grid
     for (int m = 0; m < 2; ++m) {
       for (int n = 0; n < 2; ++n) {
-        for (int l = 0; l < 2; l++) {
+        for (int l = 0; l < 2; ++l) {
           offset = Vector3i(m, n, l);
-          gridV = gridV + 0.125 * m_cells[cell->cellIndices + offset]->avgParticleV;
+          gridV += 0.125 * m_cells[cellIndices + offset]->temp_avgParticleV;
         }
       }
     }
@@ -780,8 +782,8 @@ float MacGrid::getInterpolatedValue(float x, float y, float z, int index) {
 void MacGrid::updateParticleVelocities()
 {
   // For every particle
-  // #pragma omp parallel for
-  for (unsigned int particleIndex = 0; particleIndex < 2; ++particleIndex) {
+// #pragma omp parallel for
+  for (unsigned int particleIndex = 0; particleIndex < m_particles.size(); ++particleIndex) {
 
     Particle * particle = m_particles[particleIndex];
     const Vector3f particlePosition = particle->position;
@@ -826,14 +828,8 @@ void MacGrid::updateParticleVelocities()
 // Sets particle positions based on their velocities
 void MacGrid::updateParticlePositions(const float deltaTime)
 {
-  cout << "-- Before updating particle velocities" << endl;
-  for (Particle * particle : m_particles) cout << Debug::particleToString(particle) << endl;
-
   // Get their velocities
   updateParticleVelocities();
-
-  cout << "-- After updating particle velocities" << endl;
-  for (Particle * particle : m_particles) cout << Debug::particleToString(particle) << endl;
 
   // Take a half step
 #pragma omp parallel for
@@ -856,11 +852,9 @@ void MacGrid::updateParticlePositions(const float deltaTime)
       particle->position = indicesToCenterPosition(newIndices + normalEstimate);
     }
   }
-  cout << "half step taken" << endl;
 
   // Get their velocities again
   updateParticleVelocities();
-  cout<<"update particle velocity again"<<endl;
 
   // Take a full step from their original positions
 #pragma omp parallel for
@@ -868,18 +862,7 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     Particle * particle = m_particles[i];
     particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
-    cout << "full step taken" << endl;
 }
-
-
-
-
-
-
-
-
-
-
 
 // ================== Positional Helpers
 
@@ -942,20 +925,19 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
 
     // If cell does exist, and is not solid
     Cell * cell = kv->second;
-    if (cell->material != Material::Solid) {
-      cell->material = material;
-    }
+    if (cell->material != Material::Solid) cell->material = material;
   }
 }
 
 void MacGrid::setCellMaterialLayers(const Material material, const int layer)
 {
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     
-    // Skip if incorrect material
     const Vector3i cellIndices = i->first;
     Cell * cell = i->second;
+
+    // Skip if the cell is of the wrong material
     if (cell->material != material) continue;
 
     // Set layer
