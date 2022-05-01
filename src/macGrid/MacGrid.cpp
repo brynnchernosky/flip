@@ -174,8 +174,9 @@ void MacGrid::simulate()
     // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
     updateVelocityFieldByRemovingDivergence();
     cout << "∟ updated velocity field by removing divergence" << endl;
+    
 
-    printGrid();
+    // printGrid();
     // for (Particle * const particle : m_particles) cout << Debug::particleToString(particle) << endl;
     // cout << "finished printing particles" << endl;
 
@@ -685,18 +686,27 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     if (cell->material != Fluid) continue;
 
     // Update velocity based on pseudopressure
-    if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Fluid) {
-      float xGradient = pseudoPressures[cell->index]-pseudoPressures[m_cells[cellIndices + Vector3i(-1, 0, 0)]->index];
+    if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material != Solid) {
+      float xGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Fluid) {
+        xGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(-1, 0, 0)]->index];
+      } 
       cell->u[0] -= xGradient;
     }
 
-    if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Fluid) {
-      float yGradient = pseudoPressures[cell->index]-pseudoPressures[m_cells[cellIndices + Vector3i(0, -1, 0)]->index];
+    if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material != Solid) {
+      float yGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Fluid) {
+        yGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, -1, 0)]->index];
+      } 
       cell->u[1] -= yGradient;
     }
 
-    if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Fluid) {
-      float zGradient = pseudoPressures[cell->index]-pseudoPressures[m_cells[cellIndices + Vector3i(0, 0, -1)]->index];
+    if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material != Solid) {
+      float zGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Fluid) {
+        zGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, 0, -1)]->index];
+      }
       cell->u[2] -= zGradient;
     }
   }
@@ -791,7 +801,6 @@ void MacGrid::transferParticlesToGrid()
     m_cells[belongingCell]->temp_avgParticleV += particle->velocity;
     m_cells[belongingCell]->temp_particleNums += 1;
   }
-
 
   // Average velocities
 #pragma omp parallel for
