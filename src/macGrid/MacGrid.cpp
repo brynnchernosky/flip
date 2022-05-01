@@ -158,28 +158,26 @@ void MacGrid::simulate()
     // Given particle positions, update cell materials, neighbors, and layers, then create buffer zone
     createBufferZone();
     cout << "∟ created buffer zone, now have " << m_cells.size() << " cells"  << endl;
-    // printGrid();
 
     // Given particle velocities, update velocity field (adjacent grid cells' velocities)
     transferParticlesToGrid();
     cout << "∟ " << m_particles.size() << " particles transferred to grid" << endl;
-    // printGrid();
 
     // Calculate and apply external forces to velocity field
     applyExternalForces(deltaTime);
     cout << "∟ applied external forces to " << m_cells.size() << " cells" << endl;
-    // printGrid();
-
-    // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
-    updateVelocityFieldByRemovingDivergence();
-    cout << "∟ updated velocity field by removing divergence" << endl;
-    // printGrid();
 
     // Enforce DBC
     enforceDirichletBC();
     cout << "∟ enforced dirichlet boundary condition" << endl;
+
+    // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
+    updateVelocityFieldByRemovingDivergence();
+    cout << "∟ updated velocity field by removing divergence" << endl;
+
     printGrid();
-    for (Particle * const particle : m_particles) cout << Debug::particleToString(particle) << endl;
+    // for (Particle * const particle : m_particles) cout << Debug::particleToString(particle) << endl;
+    // cout << "finished printing particles" << endl;
 
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
@@ -548,7 +546,8 @@ void MacGrid::applyExternalForces(const float deltaTime)
 // Sets the velocity field into solid cells to zero 
 void MacGrid::enforceDirichletBC()
 {
-#pragma omp parallel for
+  // Paper 1
+// #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
 
     const Vector3i cellIndices = kv->first;
@@ -557,21 +556,54 @@ void MacGrid::enforceDirichletBC()
     // Skip if cell is not solid
     if (cell->material != Material::Solid) continue;
 
-    // Prevent flow into solid
+    Vector3f newU = cell->u;
 
-    cell->u = Vector3f(min(0.f, cell->u[0]),
-                       min(0.f, cell->u[1]),
-                       min(0.f, cell->u[2]));
+    auto xMinKV = m_cells.find(cellIndices + Vector3i(-1, 0, 0));
+    if (xMinKV != m_cells.end() && xMinKV->second->material == Material::Fluid) newU[0] = 0;
+
+    auto yMinKV = m_cells.find(cellIndices + Vector3i(0, -1, 0));
+    if (yMinKV != m_cells.end() && yMinKV->second->material == Material::Fluid) newU[1] = 0;
+
+    auto zMinKV = m_cells.find(cellIndices + Vector3i(0, 0, -1));
+    if (zMinKV != m_cells.end() && zMinKV->second->material == Material::Fluid) newU[2] = 0;
+
+    cell->u = newU;
 
     auto xMaxKV = m_cells.find(cellIndices + Vector3i(1, 0, 0));
-    if (xMaxKV != m_cells.end()) xMaxKV->second->u[0] = max(0.f, xMaxKV->second->u[0]);
+    if (xMaxKV != m_cells.end() && xMaxKV->second->material == Material::Fluid) xMaxKV->second->u[0] = 0;
 
     auto yMaxKV = m_cells.find(cellIndices + Vector3i(0, 1, 0));
-    if (yMaxKV != m_cells.end()) yMaxKV->second->u[1] = max(0.f, yMaxKV->second->u[1]);
+    if (yMaxKV != m_cells.end() && yMaxKV->second->material == Material::Fluid) yMaxKV->second->u[1] = 0;
 
     auto zMaxKV = m_cells.find(cellIndices + Vector3i(0, 0, 1));
-    if (zMaxKV != m_cells.end()) zMaxKV->second->u[2] = max(0.f, zMaxKV->second->u[2]);
+    if (zMaxKV != m_cells.end() && zMaxKV->second->material == Material::Fluid) zMaxKV->second->u[2] = 0;
   }
+
+  // Paper 2
+// #pragma omp parallel for
+//   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+
+//     const Vector3i cellIndices = kv->first;
+//     Cell * cell = kv->second;
+
+//     // Skip if cell is not solid
+//     if (cell->material != Material::Solid) continue;
+
+//     // Prevent flow into solid
+
+//     cell->u = Vector3f(min(0.f, cell->u[0]),
+//                        min(0.f, cell->u[1]),
+//                        min(0.f, cell->u[2]));
+
+//     auto xMaxKV = m_cells.find(cellIndices + Vector3i(1, 0, 0));
+//     if (xMaxKV != m_cells.end()) xMaxKV->second->u[0] = max(0.f, xMaxKV->second->u[0]);
+
+//     auto yMaxKV = m_cells.find(cellIndices + Vector3i(0, 1, 0));
+//     if (yMaxKV != m_cells.end()) yMaxKV->second->u[1] = max(0.f, yMaxKV->second->u[1]);
+
+//     auto zMaxKV = m_cells.find(cellIndices + Vector3i(0, 0, 1));
+//     if (zMaxKV != m_cells.end()) zMaxKV->second->u[2] = max(0.f, zMaxKV->second->u[2]);
+//   }
 }
 
 // Sets the diverging component of the velocity field to zero
@@ -602,8 +634,6 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
 
   cout << "Debug3" << endl;
 
-  printGrid();
-
   // Fill A and b arrays by iterating over all fluid cells
 // #pragma omp parallel for
   for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
@@ -617,8 +647,6 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     // Fill this row of the A matrix (coefficients)
     float centerCoefficient = -6;
     for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
-      cout << Debug::vectorToString(cellIndices) << endl;
-      cout << Debug::vectorToString(neighborOffset) << endl;
       assert(m_cells.find(cellIndices + neighborOffset) != m_cells.end());
       if (m_cells[cellIndices + neighborOffset]->material == Solid) {
         centerCoefficient += 1;
@@ -887,6 +915,8 @@ void MacGrid::updateParticlePositions(const float deltaTime)
   // Get their velocities
   updateParticleVelocities();
 
+  cout << "DebugA" << endl;
+
   // Take a half step
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
@@ -894,10 +924,17 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     particle->oldPosition = particle->position;
     particle->position    = particle->position + particle->velocity*deltaTime*0.5;
   }
+
+  cout << "DebugB" << endl;
+
   resolveParticlePenetratingSolid();
+
+  cout << "DebugC" << endl;
 
   // Get their velocities again
   updateParticleVelocities();
+
+  cout << "DebugD" << endl;
 
   // Take a full step from their original positions
 #pragma omp parallel for
@@ -905,6 +942,9 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     Particle * particle = m_particles[i];
     particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
+
+  cout << "DebugE" << endl;
+
   resolveParticlePenetratingSolid();
 }
 
@@ -913,24 +953,13 @@ void MacGrid::resolveParticlePenetratingSolid()
   // For each particle
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
     Particle * particle = m_particles[i];
-    // Resolve collisions by moving the particle out of the solid cell
-    Vector3i newIndices = positionToIndices(particle->position);
-    if (m_cells[newIndices]->material == Material::Solid) {
-      const Vector3i oldIndices = positionToIndices(particle->oldPosition);
-      const Vector3i newToOld = oldIndices - newIndices;
-      Vector3i normalEstimate = newToOld;
-      for (int j = 0; j < 3; ++j) {
-        Vector3i move = Vector3i::Zero();
-        move[j] = normalEstimate[j];
-        if (m_cells[newIndices + move]->material == Material::Solid) {
-          normalEstimate[j] = 0;
-        }
-        else{
-          normalEstimate[j] = 1;
-        }
-      }
-      particle->position = indicesToCenterPosition(newIndices + normalEstimate);
-    }
+
+    // Skip if particle is currently within bounds
+    Vector3i currIndices = positionToIndices(particle->position);
+    if (withinBounds(currIndices)) continue;
+
+    // If out of bounds, return it to its old position
+    particle->position = particle->oldPosition;
   }
 }
 
