@@ -79,6 +79,7 @@ class MacGrid
     void  updateParticleVelocities();
     std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
     void updateParticlePositions(float deltaTime);
+    void resolveParticlePenetratingSolid();
 
     // Positional Helpers
 
