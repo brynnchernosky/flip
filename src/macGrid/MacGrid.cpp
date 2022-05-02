@@ -162,6 +162,10 @@ void MacGrid::simulate()
     applyExternalForces(deltaTime);
     cout << "∟ applied external forces to " << m_cells.size() << " cells" << endl;
 
+    // Extend velocity (1st time)
+    extrapolateFluidCellVelocities();
+    cout << "∟ extended cell velocities to air cells (1st time)" << endl;
+
     // Enforce DBC
     enforceDirichletBC();
     cout << "∟ enforced dirichlet boundary condition" << endl;
@@ -170,8 +174,9 @@ void MacGrid::simulate()
     updateVelocityFieldByRemovingDivergence();
     cout << "∟ updated velocity field by removing divergence" << endl;
 
+    // Extend velocity (2nd time)
     extrapolateFluidCellVelocities();
-    cout << "∟ extrapolate fluid cell velocities" << endl;
+    cout << "∟ extended cell velocities to air cells (2nd time)" << endl;
 
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
@@ -795,66 +800,70 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
   cout << "Debug6" << endl;
 }
 
-void MacGrid::extrapolateFluidCellVelocities() {
-  // Set layer field of non-fluid cells to -1 and fluid cells to 0
+void MacGrid::extrapolateFluidCellVelocities()
+{
+  // Set layer field of non-fluid cells to -1
 #pragma omp parallel for
-  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) kv->second->layer = -1;
-  setCellMaterialLayers(Material::Fluid, 0);
+  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+    kv->second->layer = -1;
+  }
 
-  cout << "Debug7" << endl;
+  // Set layer field of fluid cells to 0
+  setCellMaterialLayers(Material::Fluid, 0);
 
   // Iterate to extrapolate velocities
   for (int bufferLayer = 1; bufferLayer < max(4, (int) ceil(m_kCFL)); ++bufferLayer) {
     
+    int expectedLayer = bufferLayer - 1;
+
     // For each cell
-#pragma omp parallel for
     for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
-      
-      // Skip if layer != -1
+
       const Vector3i cellIndices = i->first;
       Cell * cell = i->second;
+      
+      // Skip if layer has been set before
       if (cell->layer != -1) continue;
 
       // If cell has a neighbor of one lower layer, set layer to bufferLayer and set its velocities
-      int expectedLayer = bufferLayer - 1;
-      int count = 0;
-      float averageX = 0;
-      float averageY = 0;
-      float averageZ = 0;
 
+      int count = 0;
+      Vector3f averageVelocity = Vector3f::Zero();
+
+      // Iterate over neighbors to accumulate
       for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
 
         // Skip if neighbor does not exist
         if (m_cells.find(cellIndices + neighborOffset) == m_cells.end()) continue;
+        const Cell * neighbor = m_cells[cellIndices + neighborOffset];
 
         // Skip if neighbor is not of expected layer
-        const Cell * neighbor = m_cells[cellIndices + neighborOffset];
         if (neighbor->layer != expectedLayer) continue;
         
-        // Capture info
+        // Accumulate info
         count++;
-        averageX += neighbor->u[0];
-        averageY += neighbor->u[1];
-        averageZ += neighbor->u[2];
+        averageVelocity += neighbor->u;
       }
 
-      // Has neighbors of one lower layer
+      // Cell has neighbors of one lower layer
       if (count > 0) {
-        averageX /= count;
-        averageY /= count;
-        averageZ /= count;
+
+        averageVelocity /= count;
+        averageVelocity /= bufferLayer; // heuristic
 
         // Set stuff
+
         cell->layer = bufferLayer;
 
-        if (m_cells.find(cellIndices + Vector3i(-1, 0, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(-1, 0, 0)]->material != Material::Fluid)
-          cell->u[0] = averageX;
-        
-        if (m_cells.find(cellIndices + Vector3i(0, -1, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, -1, 0)]->material != Material::Fluid)
-          cell->u[1] = averageY;
-        
-        if (m_cells.find(cellIndices + Vector3i(0, 0, -1)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, 0, -1)]->material != Material::Fluid)
-          cell->u[2] = averageZ;
+        auto xMinKV = m_cells.find(cellIndices + Vector3i(-1, 0, 0)); 
+        if (xMinKV != m_cells.end() && xMinKV->second->material == Material::Fluid) cell->u[0] = averageVelocity[0];
+
+        auto yMinKV = m_cells.find(cellIndices + Vector3i(0, -1, 0)); 
+        if (yMinKV != m_cells.end() && yMinKV->second->material == Material::Fluid) cell->u[1] = averageVelocity[1];
+
+        auto zMinKV = m_cells.find(cellIndices + Vector3i(0, 0, -1)); 
+        if (zMinKV != m_cells.end() && zMinKV->second->material == Material::Fluid) cell->u[2] = averageVelocity[2];
+
       }
     }
   }
