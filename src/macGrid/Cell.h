@@ -22,7 +22,7 @@ struct Cell
 
   // Temporary variables valid only within transferParticleToGrid()
   Eigen::Vector3f temp_avgParticleV = Eigen::Vector3f::Zero();
-  int             temp_particleNums = -1;
+  Eigen::Vector3i temp_particleNums = Eigen::Vector3i::Zero();
 
   // Temporary variables valid only within 
   int index = -1;
