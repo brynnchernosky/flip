@@ -41,6 +41,7 @@ class MacGrid
     std::string m_outputFolder;
 
     float m_cellWidth;
+    int   m_strata;
     float m_maxAverageSurfaceParticlesPerCellFaceArea; // surfaceParticles.size() <= this * surfaceArea
     float m_maxAverageSurfaceParticlesPerArea;
     Eigen::Vector3i m_cellCount;
@@ -72,18 +73,17 @@ class MacGrid
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
 
     float calculateDeltaTime();
-    void applyExternalForces(const float deltaTime);
-    void enforceDirichletBC();
-    void transferParticlesToGrid();
-    void updateParticleVelocities();
-    float getInterpolatedValue(float x, float y, float z, int index);
+    void  applyExternalForces(const float deltaTime);
+    void  enforceDirichletBC();
+    void  transferParticlesToGrid();
+    void  updateParticleVelocities();
+    std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
     void updateParticlePositions(float deltaTime);
-
-    void assignCellIdx3i();
-
+    void resolveParticlePenetratingSolid();
 
     // Positional Helpers
 
+    const Eigen::Vector3f toRegularizedPosition  (const Eigen::Vector3f &position)    const;
     const Eigen::Vector3i positionToIndices      (const Eigen::Vector3f &position)    const;
     const Eigen::Vector3f indicesToBasePosition  (const Eigen::Vector3i &cellIndices) const;
     const Eigen::Vector3f indicesToCenterPosition(const Eigen::Vector3i &cellIndices) const;

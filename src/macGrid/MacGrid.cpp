@@ -10,9 +10,11 @@
 
 using namespace std;
 using namespace Eigen;
+
 typedef Triplet<float> T;
 
-const vector<Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+const vector<const Vector3i> NEIGHBOR_OFFSETS = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+const vector<const Vector3f> INTERP_OFFSETS = {{0, 0.5, 0.5}, {0.5, 0, 0.5}, {0.5, 0.5, 0}};
 
 #define SANITY_CHECKS false
 #if SANITY_CHECKS
@@ -43,6 +45,7 @@ MacGrid::MacGrid(string folder)
   m_outputFolder = folder + "/particles";
 
   m_cellWidth = settings.value(QString("cellWidth")).toFloat();
+  m_strata = settings.value(QString("strata")).toFloat();
 
   m_maxAverageSurfaceParticlesPerCellFaceArea = settings.value(QString("maxAverageSurfaceParticlesPerCellFaceArea")).toFloat();
   m_maxAverageSurfaceParticlesPerArea         = m_maxAverageSurfaceParticlesPerCellFaceArea / m_cellWidth / m_cellWidth;
@@ -105,7 +108,7 @@ void MacGrid::init()
   // Fluid
   meshToSurfaceParticles(m_fluidSurfaceParticles, m_fluidMeshFilepath);
   assignParticleCellMaterials(Material::Fluid, m_fluidSurfaceParticles);
-  // fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
+  fillGridCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
   addParticlesToCells(Material::Fluid);
 }
 
@@ -148,8 +151,9 @@ void MacGrid::simulate()
     ++i;
 
     // Compute deltaTime or something
-    const float deltaTime = calculateDeltaTime();
+    const float deltaTime = 0.5; // min(calculateDeltaTime(), m_simulationTime - time);
     cout << "∟ calculated deltaTime to be " << deltaTime << endl;
+    // printGrid();
 
     // Given particle positions, update cell materials, neighbors, and layers, then create buffer zone
     createBufferZone();
@@ -161,16 +165,21 @@ void MacGrid::simulate()
 
     // Calculate and apply external forces to velocity field
     applyExternalForces(deltaTime);
-    cout << "∟ apply external forces to " << m_cells.size() << " cells" << endl;
-
-    // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
-    updateVelocityFieldByRemovingDivergence();
-    cout<< "∟ updated velocity field By removing divergence"<<endl;
+    cout << "∟ applied external forces to " << m_cells.size() << " cells" << endl;
 
     // Enforce DBC
     enforceDirichletBC();
     cout << "∟ enforced dirichlet boundary condition" << endl;
+
+    // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
+    updateVelocityFieldByRemovingDivergence();
+    cout << "∟ updated velocity field by removing divergence" << endl;
     
+
+    // printGrid();
+    // for (Particle * const particle : m_particles) cout << Debug::particleToString(particle) << endl;
+    // cout << "finished printing particles" << endl;
+
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
     cout << "∟ updated particle positions" << endl;
@@ -197,6 +206,13 @@ void MacGrid::simulate()
 // Sets up fluid cells and a buffer zone around them, based on the particles' positions
 void MacGrid::createBufferZone()
 {
+  // Set all fluid cells to air
+#pragma omp parallel for
+  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+    Cell * cell = kv->second;
+    if (cell->material == Material::Fluid) cell->material = Material::Air;
+  }
+
   // Update grid cells that currently have fluid in them
   assignParticleCellMaterials(Material::Fluid, m_particles);
 
@@ -208,21 +224,27 @@ void MacGrid::createBufferZone()
   // Create a buffer zone around the fluid
   for (int bufferLayer = 1; bufferLayer < max(4, (int) ceil(m_kCFL)); ++bufferLayer) {
 
-    // For each cell
+    // Save each cell
+    vector<Cell *> iterCells;
+    iterCells.reserve(m_cells.size());
     for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-      const Vector3i cellIndices = kv->first;
-      Cell * cell = kv->second;
+      iterCells.push_back(kv->second);
+    }
 
-      // Skip if it's not a fluid/air cell with layer = bufferLayer - 1
-      if (cell->material == Material::Solid || cell->layer != bufferLayer - 1) continue;
+    // Iterate through cells
+    for (Cell * cell : iterCells) {
+      const Vector3i cellIndices = cell->cellIndices;
+
+      // Skip if its layer != bufferLayer - 1 or its a solid cell
+      if (cell->layer != bufferLayer - 1 || cell->material == Material::Solid) continue;
 
       // For each of its six neighbor cells
       for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
         const Vector3i neighborIndices = cellIndices + neighborOffset;
-        auto neighborKey = m_cells.find(neighborIndices);
+        auto neighborKV = m_cells.find(neighborIndices);
 
         // If the neighbor cell does not exist
-        if (neighborKey == m_cells.end()) {
+        if (neighborKV == m_cells.end()) {
 
           // Create the neighbor cell and put it in the hash table
           Cell * newNeighbor = new Cell{};
@@ -236,18 +258,36 @@ void MacGrid::createBufferZone()
           continue;
         }
 
-        // If the neighbor cell does exist, is not solid, and has layer = -1
-        Cell * neighbor = neighborKey->second;
-        if (neighbor->material != Material::Solid && neighbor->layer == -1) {
-          neighbor->material = Material::Air;
+        // If the neighbor cell does exist
+        Cell * neighbor = neighborKV->second;
+
+        // If the neighbor's layer and material haven't been set yet
+        if (neighbor->layer == -1 && neighbor->material != Material::Solid) {
           neighbor->layer = bufferLayer;
-        }
+          neighbor->material = Material::Air;
+        } 
       }
     }
   }
+
+  // Set particles' cells
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); i++) {
+  for (unsigned int i = 0; i < m_particles.size(); ++i) {
     m_particles[i]->cell = m_cells[positionToIndices(m_particles[i]->position)];
+  }
+  
+  // Delete unnecessary cells
+  auto kv = m_cells.cbegin();
+  while (kv != m_cells.cend()) {
+    
+    // Do not delete solid cells or cells with layer != -1
+    if (kv->second->material == Material::Solid || kv->second->layer != -1) {
+      ++kv;
+      continue;
+    }
+
+    delete kv->second;
+    kv = m_cells.erase(kv);
   }
 }
 
@@ -261,13 +301,13 @@ void MacGrid::setGridCellVelocity(const Vector3i cellIndices, const Vector3f vel
   assert(gridCell != nullptr);
   assert(gridCell->material == Material::Fluid);
 
-  gridCell->ux = velocity1[0];
-  gridCell->uy = velocity1[0];
-  gridCell->uz = velocity1[0];
+  gridCell->u[0] = velocity1[0];
+  gridCell->u[1] = velocity1[0];
+  gridCell->u[2] = velocity1[0];
 
-  m_cells[cellIndices + Vector3i(1, 0, 0)]->ux = -velocity2[0];
-  m_cells[cellIndices + Vector3i(0, 1, 0)]->uy = -velocity2[1];
-  m_cells[cellIndices + Vector3i(0, 0, 1)]->uz = -velocity2[2];
+  m_cells[cellIndices + Vector3i(1, 0, 0)]->u[0] = -velocity2[0];
+  m_cells[cellIndices + Vector3i(0, 1, 0)]->u[1] = -velocity2[1];
+  m_cells[cellIndices + Vector3i(0, 0, 1)]->u[2] = -velocity2[2];
 }
 
 // Debugging only: adds a particle to the system (does not set cells' and particles' relationships)
@@ -444,26 +484,33 @@ void MacGrid::fillGridCellsRecursive(const Material material, const int layerNum
 
 // Given a material, populates all cells with that material with particles using stratified sampling
 void MacGrid::addParticlesToCells(const Material material) {
-  const int strata = 2;           // number of subdivisions per side, such that there are strata^3 subcells per cell
-  const int samplesPerStrata = 1; // number of particles per subcell
-  const float strataWidth = m_cellWidth / strata;
+
+  // Note: m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
+  const float strataWidth = m_cellWidth / m_strata;
+
+  // For each cell
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    if (i->second->material != material) {
-      continue;
-    }
-    for (int x = 0; x < strata; x++) {
-      for (int y = 0; y < strata; y++) {
-        for (int z = 0; z < strata; z++) {
-          for (int sample = 0; sample < samplesPerStrata; ++sample) {
-            const float a = getRandomFloat();
-            const float b = getRandomFloat();
-            const float c = getRandomFloat();
-            Vector3f position = indicesToBasePosition(i->first) + Vector3f(x+a, y+b, z+c) * strataWidth;
-            Particle * newParticle = new Particle{nullptr, position, Vector3f::Zero()};
-            assert(positionToIndices(position) == i->first);
-            m_particles.push_back(newParticle);
-          }
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+
+    const Vector3i cellIndices = i->first;
+    Cell * cell = i->second;
+
+    // Skip if the cell is of the wrong material
+    if (cell->material != material) continue;
+
+    // Do stratified sampling
+    for (int x = 0; x < m_strata; ++x) {
+      for (int y = 0; y < m_strata; ++y) {
+        for (int z = 0; z < m_strata; ++z) {
+
+          // Get offsets
+          const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
+
+          // Create a new particle
+          Particle * newParticle = new Particle{};
+          newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
+          assert(positionToIndices(newParticle->position) == cellIndices);
+          m_particles.push_back(newParticle);
         }
       }
     }
@@ -492,12 +539,9 @@ void MacGrid::applyExternalForces(const float deltaTime)
 {
   const Vector3f gravityDeltaV = m_gravityVector * deltaTime;
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-    i->second->ux += gravityDeltaV[0];
-    i->second->uy += gravityDeltaV[1];
-    i->second->uz += gravityDeltaV[2];
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+    i->second->u += gravityDeltaV;
   }
-  cout << "gravity " << gravityDeltaV << endl; 
 }
 
 <<<<<<< HEAD
@@ -507,22 +551,64 @@ void MacGrid::applyExternalForces(const float deltaTime)
 >>>>>>> a40fca33f89534a5dba5704813d6742694142e3c
 void MacGrid::enforceDirichletBC()
 {
-#pragma omp parallel for
+  // Paper 1
+// #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
 
+    const Vector3i cellIndices = kv->first;
     Cell * cell = kv->second;
 
-    // Set solid cells' velocities to zero
-    if (cell->material == Material::Solid) continue;
+    // Skip if cell is not solid
+    if (cell->material != Material::Solid) continue;
 
-    // Set fluid-solid boundary velocities to zero (this is safe due to the buffer layer around the fluid)
-    auto a = m_cells.find(kv->first + Vector3i(-1, 0, 0));
-    if (a != m_cells.end() && a->second->material == Solid) kv->second->ux = 0;
-    auto b = m_cells.find(kv->first + Vector3i(0, -1, 0));
-    if (b != m_cells.end() && b->second->material == Solid) kv->second->uy = 0;
-    auto c = m_cells.find(kv->first + Vector3i(0, 0, -1));
-    if (c != m_cells.end() && c->second->material == Solid) kv->second->uz = 0;
+    Vector3f newU = cell->u;
+
+    auto xMinKV = m_cells.find(cellIndices + Vector3i(-1, 0, 0));
+    if (xMinKV != m_cells.end() && xMinKV->second->material == Material::Fluid) newU[0] = 0;
+
+    auto yMinKV = m_cells.find(cellIndices + Vector3i(0, -1, 0));
+    if (yMinKV != m_cells.end() && yMinKV->second->material == Material::Fluid) newU[1] = 0;
+
+    auto zMinKV = m_cells.find(cellIndices + Vector3i(0, 0, -1));
+    if (zMinKV != m_cells.end() && zMinKV->second->material == Material::Fluid) newU[2] = 0;
+
+    cell->u = newU;
+
+    auto xMaxKV = m_cells.find(cellIndices + Vector3i(1, 0, 0));
+    if (xMaxKV != m_cells.end() && xMaxKV->second->material == Material::Fluid) xMaxKV->second->u[0] = 0;
+
+    auto yMaxKV = m_cells.find(cellIndices + Vector3i(0, 1, 0));
+    if (yMaxKV != m_cells.end() && yMaxKV->second->material == Material::Fluid) yMaxKV->second->u[1] = 0;
+
+    auto zMaxKV = m_cells.find(cellIndices + Vector3i(0, 0, 1));
+    if (zMaxKV != m_cells.end() && zMaxKV->second->material == Material::Fluid) zMaxKV->second->u[2] = 0;
   }
+
+  // Paper 2
+// #pragma omp parallel for
+//   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+
+//     const Vector3i cellIndices = kv->first;
+//     Cell * cell = kv->second;
+
+//     // Skip if cell is not solid
+//     if (cell->material != Material::Solid) continue;
+
+//     // Prevent flow into solid
+
+//     cell->u = Vector3f(min(0.f, cell->u[0]),
+//                        min(0.f, cell->u[1]),
+//                        min(0.f, cell->u[2]));
+
+//     auto xMaxKV = m_cells.find(cellIndices + Vector3i(1, 0, 0));
+//     if (xMaxKV != m_cells.end()) xMaxKV->second->u[0] = max(0.f, xMaxKV->second->u[0]);
+
+//     auto yMaxKV = m_cells.find(cellIndices + Vector3i(0, 1, 0));
+//     if (yMaxKV != m_cells.end()) yMaxKV->second->u[1] = max(0.f, yMaxKV->second->u[1]);
+
+//     auto zMaxKV = m_cells.find(cellIndices + Vector3i(0, 0, 1));
+//     if (zMaxKV != m_cells.end()) zMaxKV->second->u[2] = max(0.f, zMaxKV->second->u[2]);
+//   }
 }
 
 // Sets the diverging component of the velocity field to zero
@@ -531,9 +617,11 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
   // Set up solver with preconditioning
   ConjugateGradient<SparseMatrix<float>, Lower|Upper, IncompleteCholesky<float>> m_solver;
 
+  cout << "Debug1" << endl;
+
   // Number all fluid cells
   int numFluidCells = 0;
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     if (i->second->material == Fluid) {
       i->second->index = numFluidCells;
       numFluidCells++;
@@ -542,23 +630,29 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     }
   }
 
+  cout << "Debug2" << endl;
+
   // Create A and b arrays
   SparseMatrix<float> A(numFluidCells, numFluidCells);
   vector<T> coefficients;
   VectorXf b(numFluidCells);
 
-  // Fill A and b arrays by iterating over all fluid cells
-#pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  cout << "Debug3" << endl;
 
-    // Skip if non-fluid
+  // Fill A and b arrays by iterating over all fluid cells
+// #pragma omp parallel for
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+
     const Vector3i cellIndices = i->first;
     const Cell * cell = i->second;
+
+    // Skip if the cell is non-fluid
     if (cell->material != Fluid) continue;
 
     // Fill this row of the A matrix (coefficients)
     float centerCoefficient = -6;
     for (const Vector3i &neighborOffset : NEIGHBOR_OFFSETS) {
+      assert(m_cells.find(cellIndices + neighborOffset) != m_cells.end());
       if (m_cells[cellIndices + neighborOffset]->material == Solid) {
         centerCoefficient += 1;
       } else if (m_cells[cellIndices + neighborOffset]->material == Fluid) {
@@ -567,48 +661,61 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     }
     coefficients.push_back(T(cell->index, cell->index, centerCoefficient));
 
-    // Fill this row of the b matrix (divergences) (at this point, velocities in/out of solids should be 0)
+    // Fill this row of the b matrix (divergences) (at this point, velocities into solids should be 0)
     float divergence = 0;
-    divergence += (m_cells[cellIndices + Vector3i(1, 0, 0)]->ux) - cell->ux;
-    divergence += (m_cells[cellIndices + Vector3i(0, 1, 0)]->uy) - cell->uy;
-    divergence += (m_cells[cellIndices + Vector3i(0, 0, 1)]->uz) - cell->uz;
+    divergence += (m_cells[cellIndices + Vector3i(1, 0, 0)]->u[0]) - cell->u[0];
+    divergence += (m_cells[cellIndices + Vector3i(0, 1, 0)]->u[1]) - cell->u[1];
+    divergence += (m_cells[cellIndices + Vector3i(0, 0, 1)]->u[2]) - cell->u[2];
     b(cell->index, 0) = divergence;
   }
   A.setFromTriplets(coefficients.begin(), coefficients.end());
+
+  cout << "Debug4" << endl;
 
   // Solve for pseudo-pressures
   VectorXf pseudoPressures(m_cells.size());
   m_solver.compute(A);
   pseudoPressures = m_solver.solve(b);
 
+  cout << "Debug5" << endl;
+
   // Use pseudo-pressures to correct velocities
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
 
-    // Skip if non-fluid
     const Vector3i cellIndices = i->first;
     Cell * cell = i->second;
+
+    // Skip if the cell is non-fluid
     if (cell->material != Fluid) continue;
 
     // Update velocity based on pseudopressure
-    float xGradient = pseudoPressures[cell->index];
-    if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Fluid) {
-      xGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(-1, 0, 0)]->index];
+    if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material != Solid) {
+      float xGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Fluid) {
+        xGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(-1, 0, 0)]->index];
+      } 
+      cell->u[0] -= xGradient;
     }
-    cell->ux -= xGradient;
 
-    float yGradient = pseudoPressures[cell->index];
-    if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Fluid) {
-      yGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, -1, 0)]->index];
+    if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material != Solid) {
+      float yGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Fluid) {
+        yGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, -1, 0)]->index];
+      } 
+      cell->u[1] -= yGradient;
     }
-    cell->uy -= yGradient;
 
-    float zGradient = pseudoPressures[cell->index];
-    if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Fluid) {
-      zGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, 0, -1)]->index];
+    if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material != Solid) {
+      float zGradient = pseudoPressures[cell->index];
+      if (m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Fluid) {
+        zGradient -= pseudoPressures[m_cells[cellIndices + Vector3i(0, 0, -1)]->index];
+      }
+      cell->u[2] -= zGradient;
     }
-    cell->uz -= zGradient;
   }
+
+  cout << "Debug6" << endl;
 
   // ================== Section 3f
 
@@ -616,6 +723,8 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
 #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) kv->second->layer = -1;
   setCellMaterialLayers(Material::Fluid, 0);
+
+  cout << "Debug7" << endl;
 
   // Iterate to extrapolate velocities
   for (int bufferLayer = 1; bufferLayer < max(4, (int) ceil(m_kCFL)); ++bufferLayer) {
@@ -647,9 +756,9 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
         
         // Capture info
         count++;
-        averageX += neighbor->ux;
-        averageY += neighbor->uy;
-        averageZ += neighbor->uz;
+        averageX += neighbor->u[0];
+        averageY += neighbor->u[1];
+        averageZ += neighbor->u[2];
       }
 
       // Has neighbors of one lower layer
@@ -661,14 +770,14 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
         // Set stuff
         cell->layer = bufferLayer;
 
-        if (m_cells.find(cellIndices + Vector3i(-1, 0, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(-1, 0, 0)]->material == Material::Fluid)
-          cell->ux = averageX;
+        if (m_cells.find(cellIndices + Vector3i(-1, 0, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(-1, 0, 0)]->material != Material::Fluid)
+          cell->u[0] = averageX;
         
-        if (m_cells.find(cellIndices + Vector3i(0, -1, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, -1, 0)]->material == Material::Fluid)
-          cell->uy = averageY;
+        if (m_cells.find(cellIndices + Vector3i(0, -1, 0)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, -1, 0)]->material != Material::Fluid)
+          cell->u[1] = averageY;
         
-        if (m_cells.find(cellIndices + Vector3i(0, 0, -1)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, 0, -1)]->material == Material::Fluid)
-          cell->uz = averageZ;
+        if (m_cells.find(cellIndices + Vector3i(0, 0, -1)) != m_cells.end() && m_cells[cellIndices + Vector3i(0, 0, -1)]->material != Material::Fluid)
+          cell->u[2] = averageZ;
       }
     }
   }
@@ -679,38 +788,37 @@ void MacGrid::transferParticlesToGrid()
 {
   // Zero out cells' particle numbers and average velocities
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     Cell * cell = i->second;
-    cell->avgParticleV = Vector3f::Zero();
-    cell->particleNums = 0;
+    cell->temp_avgParticleV = Vector3f::Zero();
+    cell->temp_particleNums = 0;
   }
-  
-  // Accumulate cells' particle numbers and average velocities
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * const particle = m_particles[i];
-    const Vector3f offset = Vector3f(0.5, 0.5, 0.5);
-    Vector3i belongingCell = positionToIndices(particle->position + offset);
-    assert(m_cells.find(belongingCell) != m_cells.end());
-    m_cells[belongingCell]->avgParticleV = m_cells[belongingCell]->avgParticleV + particle->velocity;
-    m_cells[belongingCell]->particleNums = m_cells[belongingCell]->particleNums + 1;
+
+  // Accumulate cells' particle numbers and velocities
+  const Vector3f offset = Vector3f(0.5, 0.5, 0.5);
+  for (Particle * const particle : m_particles) {
+
+    const Vector3i belongingCell = positionToIndices(particle->position + offset);
+
+    if (m_cells.find(belongingCell) == m_cells.end()) continue;
+
+    m_cells[belongingCell]->temp_avgParticleV += particle->velocity;
+    m_cells[belongingCell]->temp_particleNums += 1;
   }
-  
+
   // Average velocities
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     Cell * cell = i->second;
-    if (cell->particleNums > 0) {
-      cell->avgParticleV /= cell->particleNums;
-    }
+    if (cell->temp_particleNums != 0) cell->temp_avgParticleV /= cell->temp_particleNums;
   }
   
   // Do trilinear interpolation
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-
-    // Skip non-fluid cells
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
+    
+    const Vector3i cellIndices = i->first;
     Cell * cell = i->second;
-    if (cell->material != Material::Fluid) continue;
 
     Vector3i offset = Vector3i::Zero();
     Vector3f gridV  = Vector3f::Zero();
@@ -718,55 +826,21 @@ void MacGrid::transferParticlesToGrid()
     // Transfer particle velocity to grid
     for (int m = 0; m < 2; ++m) {
       for (int n = 0; n < 2; ++n) {
-        for (int l = 0; l < 2; l++) {
+        for (int l = 0; l < 2; ++l) {
+          
           offset = Vector3i(m, n, l);
-          gridV = gridV + 0.125 * m_cells[cell->cellIndices + offset]->avgParticleV;
+
+          if (m_cells.find(cellIndices + offset) == m_cells.end()) continue;
+          
+          gridV += 0.125 * m_cells[cellIndices + offset]->temp_avgParticleV;
         }
       }
     }
 
     // Save cell's velocities
-    cell->ux = gridV[0];
-    cell->uy = gridV[1];
-    cell->uz = gridV[2];
-    cell->oldUX = gridV[0];
-    cell->oldUY = gridV[1];
-    cell->oldUZ = gridV[2];
+    cell->u    = gridV;
+    cell->oldU = gridV;
   }
-}
-
-float MacGrid::getInterpolatedValue(float x, float y, float z, int index) {
-  int i = floor(x);
-  int j = floor(y);
-  int j = floor(z);
-  if (index == 0) {
-  return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->ux +
-    (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
-    (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->ux;
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->ux +
- } else if (index == 1) {
-  return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uy +
-    (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
-    (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->uy;
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uy +
- } else {
-  return (i+1-x)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (x-i)*(j+1-y)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (i+1-x)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (x-i)*(y-j)*(k+1-z)*m_cells[Vector3i(i,j,k)]->uz +
-    (i+1-x)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz +
-    (i+1-x)*(y-j)*(z-k)*m_cells[Vector3i(i,j,k)]->uz;
-    (x-i)*(j+1-y)*(z-k)*m_cells[Vector3i(i,j,k)]->uz + 
-}
 }
 
 // Sets particle velocities based on their positions and the velocity field
@@ -776,101 +850,85 @@ float MacGrid::getInterpolatedValue(float x, float y, float z, int index) {
 void MacGrid::updateParticleVelocities()
 {
   // For every particle
-  // #pragma omp parallel for
-  for (unsigned int particleIndex = 0; particleIndex < 2; ++particleIndex) {
+// #pragma omp parallel for
+  for (unsigned int particleIndex = 0; particleIndex < m_particles.size(); ++particleIndex) {
 
     Particle * particle = m_particles[particleIndex];
-    const Vector3f particlePosition = particle->position;
-    const Vector3i cellIndices = positionToIndices(particle->position);
-    const Vector3f regularizedParticlePosition = particlePosition / m_cellWidth;
-    
-    Vector3i idx;
-    float picX, picY, picZ = 0;
-    float flipX, flipY, flipZ = 0;
 
-    // Interpolate on X
-    const Vector3f particlePosX = regularizedParticlePosition - Vector3f(0, 0.5, 0.5);
-    idx = Vector3i(floor(particlePosX[0]), floor(particlePosX[1]), floor(particlePosX[2]));
-    // For 2x2 cell neighborhood
-    for (int l = 0; l < 2; l++) {
-      for (int m = 0; m < 2; m++) {
-        for (int n = 0; n < 2; n++) {
-          Vector3f weights = idx.cast<float>() - particlePosX + Vector3f::Ones();
-          if (l == 1) weights[0] = particlePosX[0] - idx[0];
-          if (m == 1) weights[1] = particlePosX[1] - idx[1];
-          if (n == 1) weights[2] = particlePosX[2] - idx[2];
-          Vector3i offset = Vector3i(l, m, n);
-          // Calculate PIC particle velocity
-          picX += weights[0] * weights[1] * weights[2] * m_cells[cellIndices+offset]->ux;
-          // Calculate FLIP particle velocity
-          flipX += weights[0] * weights[1] * weights[2] * (m_cells[cellIndices+offset]->ux - m_cells[cellIndices+offset]->oldUX);
-          cout << "flipX " << flipX  << ", weights " << Debug::vectorToString(weights) << ", ux " << m_cells[cellIndices+offset]->ux << ", oldUX " << m_cells[cellIndices+offset]->oldUX << endl;
-        }
-      }
+    // cout << "Before: " << Debug::particleToString(particle) << endl;
+
+    Vector3f pic  = Vector3f::Zero();
+    Vector3f flip = Vector3f::Zero();
+
+    const Vector3f position = particle->position;
+    const Vector3f regularizedPosition = toRegularizedPosition(position);
+
+    // For each component of velocity
+    for (int index = 0; index < 3; ++index) {
+
+      // Get the regularized position to interpolate this component of velocity from
+      const Vector3f xyz = regularizedPosition - INTERP_OFFSETS[index];
+
+      // Get PIC and FLIP values from grid
+      pair<float, float> pf = getInterpolatedPICAndFLIP(xyz, index);
+      pic[index]  = pf.first;
+      flip[index] = pf.second;
     }
-
-    // Interpolate on Y
-    const Vector3f particlePosY = regularizedParticlePosition - Vector3f(0.5, 0, 0.5);
-    idx = Vector3i(floor(particlePosY[0]), floor(particlePosY[1]), floor(particlePosY[2]));
-    // For 2x2 cell neighborhood
-    for (int l = 0; l < 2; l++) {
-      for (int m = 0; m < 2; m++) {
-        for (int n = 0; n < 2; n++) {
-          Vector3f weights = idx.cast<float>() - particlePosY + Vector3f::Ones();
-          if (l == 1) weights[0] = particlePosY[0] - idx[0];
-          if (m == 1) weights[1] = particlePosY[1] - idx[1];
-          if (n == 1) weights[2] = particlePosY[2] - idx[2];
-          Vector3i offset = Vector3i(l, m, n);
-          // Calculate PIC particle velocity
-          picY += weights[0] * weights[1] * weights[2] * m_cells[cellIndices+offset]->uy;
-          // Calculate FLIP particle velocity
-          flipY += weights[0] * weights[1] * weights[2] * (m_cells[cellIndices+offset]->uy - m_cells[cellIndices+offset]->oldUY);
-        }
-      }
-    }
-
-    // Interpolate on Z
-    const Vector3f particlePosZ = regularizedParticlePosition - Vector3f(0.5, 0.5, 0);
-    idx = Vector3i(floor(particlePosZ[0]), floor(particlePosZ[1]), floor(particlePosZ[2]));
-    // For 2x2 cell neighborhood
-    for (int l = 0; l < 2; l++) {
-      for (int m = 0; m < 2; m++) {
-        for (int n = 0; n < 2; n++) {
-          Vector3f weights = idx.cast<float>() - particlePosZ + Vector3f::Ones();
-          if (l == 1) weights[0] = particlePosZ[0] - idx[0];
-          if (m == 1) weights[1] = particlePosZ[1] - idx[1];
-          if (n == 1) weights[2] = particlePosZ[2] - idx[2];
-          Vector3i offset = Vector3i(l, m, n);
-          // Calculate PIC particle velocity
-          picZ += weights[0]*weights[1]*weights[2]*m_cells[cellIndices+offset]->uz;
-          // Calculate FLIP particle velocity
-          flipZ += weights[0]*weights[1]*weights[2]*(m_cells[cellIndices+offset]->uz - m_cells[cellIndices+offset]->oldUZ);
-        }
-      }
-    }
-
-    const Vector3f pic = Vector3f(picX, picY, picZ);
-    const Vector3f flip = Vector3f(flipX, flipY, flipZ);
-
-    cout << "pic  " << Debug::vectorToString(pic) << endl;
-    cout << "flip " << Debug::vectorToString(flip) << endl;
 
     // Update particle with interpolated PIC/FLIP velocities
     particle->velocity = m_interpolationCoefficient * pic + (1 - m_interpolationCoefficient) * (particle->velocity + flip);
+
+    // cout << "pic " << Debug::vectorToString(pic) << ", flip " << Debug::vectorToString(flip) << endl;
+    // cout << "After: " << Debug::particleToString(particle) << endl;
   }
+}
+
+// Helper for the above
+pair<float, float> MacGrid::getInterpolatedPICAndFLIP(const Vector3f &xyz, const int index) const
+{
+  float p = 0, f = 0, weightSum = 0;
+
+  // Get stuff for weight calculation
+  const Vector3i ijk = Vector3i(floor(xyz[0]), floor(xyz[1]), floor(xyz[2]));
+
+  // For a 2x2 cell neighborhood around xyz
+  for (int l = 0; l < 2; ++l) {
+    for (int m = 0; m < 2; ++m) {
+      for (int n = 0; n < 2; ++n) {
+
+        // Get cell
+        const Vector3i offset(l, m, n);
+        const Vector3i ijkOffset = ijk + offset;
+
+        // Skip if cell does not exist
+        if (m_cells.find(ijkOffset) == m_cells.end()) continue;
+        Cell * const cell = m_cells.at(ijkOffset);
+
+        // Get weights
+        Vector3f weights = ijk.cast<float>() + Vector3f::Ones() - xyz;
+        if (l == 1) weights[0] = xyz[0] - ijk[0];
+        if (m == 1) weights[1] = xyz[1] - ijk[1];
+        if (n == 1) weights[2] = xyz[2] - ijk[2];
+
+        // Add to PIC and FLIP particle velocities
+        const float weight = weights[0] * weights[1] * weights[2];
+        weightSum += weight;
+        p += weight * cell->u[index];
+        f += weight * (cell->u[index] - cell->oldU[index]);
+      }
+    }
+  }
+
+  return {p / weightSum, f / weightSum};
 }
 
 // Sets particle positions based on their velocities
 void MacGrid::updateParticlePositions(const float deltaTime)
 {
-  cout << "-- Before updating particle velocities" << endl;
-  for (Particle * particle : m_particles) cout << Debug::particleToString(particle) << endl;
-
   // Get their velocities
   updateParticleVelocities();
 
-  cout << "-- After updating particle velocities" << endl;
-  for (Particle * particle : m_particles) cout << Debug::particleToString(particle) << endl;
+  cout << "DebugA" << endl;
 
   // Take a half step
 #pragma omp parallel for
@@ -878,26 +936,18 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     Particle * particle   = m_particles[i];
     particle->oldPosition = particle->position;
     particle->position    = particle->position + particle->velocity*deltaTime*0.5;
-
-    // Todo: Resolve collisions by moving the particle out of the solid cell
-    Vector3i newIndices = positionToIndices(particle->position);
-    if (m_cells[newIndices]->material == Material::Solid) {
-      const Vector3i oldIndices = positionToIndices(particle->oldPosition);
-      const Vector3i newToOld = oldIndices - newIndices;
-      Vector3i normalEstimate = newToOld;
-      for (int j = 0; j < 3; ++j) {
-        if (m_cells[newIndices + normalEstimate]->material != Material::Fluid) {
-          normalEstimate[j] = 0;
-        }
-      }
-      particle->position = indicesToCenterPosition(newIndices + normalEstimate);
-    }
   }
-  cout << "half step taken" << endl;
+
+  cout << "DebugB" << endl;
+
+  resolveParticlePenetratingSolid();
+
+  cout << "DebugC" << endl;
 
   // Get their velocities again
   updateParticleVelocities();
-  cout<<"update particle velocity again"<<endl;
+
+  cout << "DebugD" << endl;
 
   // Take a full step from their original positions
 #pragma omp parallel for
@@ -905,25 +955,39 @@ void MacGrid::updateParticlePositions(const float deltaTime)
     Particle * particle = m_particles[i];
     particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
-    cout << "full step taken" << endl;
+
+  cout << "DebugE" << endl;
+
+  resolveParticlePenetratingSolid();
 }
 
+void MacGrid::resolveParticlePenetratingSolid()
+{
+  // For each particle
+  for (unsigned int i = 0; i < m_particles.size(); ++i) {
+    Particle * particle = m_particles[i];
 
+    // Skip if particle is currently within bounds
+    Vector3i currIndices = positionToIndices(particle->position);
+    if (withinBounds(currIndices)) continue;
 
-
-
-
-
-
-
-
+    // If out of bounds, return it to its old position
+    particle->position = particle->oldPosition;
+  }
+}
 
 // ================== Positional Helpers
+
+// Given a position, regularizes it in the grid space
+const Vector3f MacGrid::toRegularizedPosition(const Vector3f &position) const
+{
+  return (position - m_cornerPosition) / m_cellWidth;
+}
 
 // Given a position, returns the indices of the cell which would contain it
 const Vector3i MacGrid::positionToIndices(const Vector3f &position) const
 {
-  const Vector3f regularizedPosition = (position - m_cornerPosition) / m_cellWidth;
+  const Vector3f regularizedPosition = toRegularizedPosition(position);
 
   return Vector3i(floor(regularizedPosition[0]),
       floor(regularizedPosition[1]),
@@ -956,17 +1020,20 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
     // If cell does not exist
     if (kv == m_cells.end()) {
       
-      // If cell is within simulation bounds
-      if (withinBounds(cellIndices)) {
-
-        // Create the cell and put it in the hash table
-        Cell * newCell = new Cell{};
-        newCell->cellIndices = cellIndices;
-        m_cells.insert({cellIndices, newCell});
-
-        // Set its material and layer
-        newCell->material = material;
+      // If cell is outside simulation bounds
+      if (!withinBounds(cellIndices)) {
+        cout << "particle outside bounds!" << endl;
+        cout << Debug::particleToString(particle) << endl;
+        continue;
       }
+
+      // Create the cell and put it in the hash table
+      Cell * newCell = new Cell{};
+      newCell->cellIndices = cellIndices;
+      m_cells.insert({cellIndices, newCell});
+
+      // Set its material
+      newCell->material = material;
 
       continue;
     }
@@ -975,6 +1042,8 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
     Cell * cell = kv->second;
     if (cell->material != Material::Solid) {
       cell->material = material;
+    } else {
+      cout << "particle in solid!" << endl;
     }
   }
 }
@@ -982,11 +1051,12 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
 void MacGrid::setCellMaterialLayers(const Material material, const int layer)
 {
 #pragma omp parallel for
-  for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+  for (auto i = m_cells.begin(); i != m_cells.end(); ++i) {
     
-    // Skip if incorrect material
     const Vector3i cellIndices = i->first;
     Cell * cell = i->second;
+
+    // Skip if the cell is of the wrong material
     if (cell->material != material) continue;
 
     // Set layer

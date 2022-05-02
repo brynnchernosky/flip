@@ -9,8 +9,8 @@ struct Particle
 {
   Cell * cell;
 
-  Eigen::Vector3f position;
-  Eigen::Vector3f velocity;
+  Eigen::Vector3f position = Eigen::Vector3f::Zero();
+  Eigen::Vector3f velocity = Eigen::Vector3f::Zero();
 
   // Eigen::Vector3f picVelocity;
   // Eigen::Vector3f flipVelocity;

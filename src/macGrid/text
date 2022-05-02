@@ -1,49 +1,26 @@
-<3,1,1>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,0,3>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<2,2,1>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<2,3,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,3,1>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<3,2,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,0,3>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<2,-1,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<-1,2,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,0,1>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,1,3>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<3,0,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,1,1>: Cell with material air, layer 1, and velocity <0.000000,0.000000,0.000000>
-<1,2,3>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<2,0,1>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,1,0>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<2,1,3>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<0,2,2>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<1,2,0>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,3,2>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<2,1,0>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<2,2,2>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<0,0,2>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<1,1,-1>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,2,1>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<-1,1,1>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<3,1,2>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<1,2,2>: Cell with material air, layer 1, and velocity <0.000000,0.000000,0.000000>
-<1,1,0>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<-1,0,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,2,3>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,1,1>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<2,0,2>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<2,2,3>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,-1,1>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<0,3,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<2,1,1>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<0,2,1>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<-1,1,2>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<2,1,2>: Cell with material air, layer 1, and velocity <0.000000,0.000000,0.000000>
-<0,1,2>: Cell with material air, layer 1, and velocity <0.000000,0.000000,0.000000>
-<0,-1,2>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,0,1>: Cell with material air, layer 2, and velocity <0.000000,0.000000,0.000000>
-<1,1,3>: Cell with material solid, layer 1, and velocity <0.000000,0.000000,0.000000>
-<2,0,3>: Cell with material solid, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,0,2>: Cell with material air, layer 1, and velocity <0.000000,0.000000,0.000000>
-<1,-1,2>: Cell with material solid, layer 2, and velocity <0.000000,0.000000,0.000000>
-<1,0,0>: Cell with material air, layer 3, and velocity <0.000000,0.000000,0.000000>
-<1,1,2>: Cell with material fluid, layer 0, and velocity <0.000000,0.000000,0.000000>
+
+M8_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/8.000000.csv");
+M8_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/8.500000.csv");
+M9_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/9.000000.csv");
+M9_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/9.500000.csv");
+M10_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/10.000000.csv");
+M10_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/10.500000.csv");
+M11_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/11.000000.csv");
+M11_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/11.500000.csv");
+M12_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/12.000000.csv");
+M12_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/12.500000.csv");
+M13_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/13.000000.csv");
+M13_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/13.500000.csv");
+M14_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/14.000000.csv");
+M14_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/14.500000.csv");
+M15_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/15.000000.csv");
+M15_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/15.500000.csv");
+M16_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/16.000000.csv");
+M16_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/16.500000.csv");
+M17_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/17.000000.csv");
+M17_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/17.500000.csv");
+M18_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/18.000000.csv");
+M18_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/18.500000.csv");
+M19_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/19.000000.csv");
+M19_5 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/19.500000.csv");
+M20_0 = csvread("/Users/zackcheng/Desktop/2021-2022 AY/Spring CSCI 2240/flip/results/workingFolder/particles/20.000000.csv");
