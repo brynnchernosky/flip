@@ -170,6 +170,9 @@ void MacGrid::simulate()
     updateVelocityFieldByRemovingDivergence();
     cout << "∟ updated velocity field by removing divergence" << endl;
 
+    extrapolateFluidCellVelocities();
+    cout << "∟ extrapolate fluid cell velocities" << endl;
+
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
     cout << "∟ updated particle positions" << endl;
@@ -790,9 +793,9 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
   // cout << endl << endl;
 
   cout << "Debug6" << endl;
+}
 
-  // ================== Section 3f
-
+void MacGrid::extrapolateFluidCellVelocities() {
   // Set layer field of non-fluid cells to -1 and fluid cells to 0
 #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) kv->second->layer = -1;

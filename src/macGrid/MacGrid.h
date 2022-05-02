@@ -78,6 +78,7 @@ class MacGrid
     float calculateDeltaTime();
     void  applyExternalForces(const float deltaTime);
     void  enforceDirichletBC();
+    void extrapolateFluidCellVelocities();
     void  transferHelper1(Particle * const particle, const int index);
     void  transferParticlesToGrid();
     void  updateParticleVelocities();
