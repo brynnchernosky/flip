@@ -5,9 +5,10 @@
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/SparseCore>
 #include <Eigen/SparseCholesky>
-#include <vector>
-
+#include <QtConcurrent>
 #include <QSettings>
+#include <math.h>
+#include <vector>
 
 #include "HashMap.h"
 #include "Cell.h"
@@ -46,6 +47,7 @@ class MacGrid
     float m_maxAverageSurfaceParticlesPerArea;
     Eigen::Vector3i m_cellCount;
     Eigen::Vector3f m_cornerPosition;
+    Eigen::Vector3f m_otherCornerPosition;
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
     std::vector<Particle *> m_particles;
 
@@ -68,6 +70,7 @@ class MacGrid
     // Simulation Helpers
 
     float m_kCFL = 2;                           // IDK lol
+    float m_simulationTimestep;                 // timestep
     float m_simulationTime;                     // total time for simulation
     Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
@@ -75,6 +78,7 @@ class MacGrid
     float calculateDeltaTime();
     void  applyExternalForces(const float deltaTime);
     void  enforceDirichletBC();
+    void  transferHelper1(Particle * const particle, const int index);
     void  transferParticlesToGrid();
     void  updateParticleVelocities();
     std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
@@ -89,6 +93,8 @@ class MacGrid
     const Eigen::Vector3f indicesToCenterPosition(const Eigen::Vector3i &cellIndices) const;
 
     // Miscellaneous Helpers
+
+    QFuture<void> saveParticlesToFile(const float time) const;
 
     void assignParticleCellMaterials(const Material material, const std::vector<Particle *> &particles);
     void setCellMaterialLayers(const Material material, const int layer);
