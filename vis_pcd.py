@@ -4,11 +4,17 @@ import argparse
 import configparser
 import os 
 import time 
+from pathlib import Path
+
+"""
+./ffmpeg -f image2 framerate 2 -i CS/CS2240/flip/results/workingFolder/particle_images/%d.png out.gif
+"""
 
 def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, default="", 
         help="folder to csvs to iterate through")
+    parser.add_argument("--save", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -47,10 +53,10 @@ def get_bounding_box(config_filepath):
     extent = maxBound - minBound
 
     obb = o3d.geometry.OrientedBoundingBox(center, np.eye(3), extent)
-    
+
     return obb
 
-def vis_folder(pcd_list, obb):
+def vis_folder(pcd_list, obb, image_filepath = None):
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
@@ -59,22 +65,17 @@ def vis_folder(pcd_list, obb):
     vis.add_geometry(pcd)
 
     ctr = vis.get_view_control()
-    ctr.set_front([0, 1, 0])
+    ctr.set_front([0, -1, 0])
     ctr.set_lookat([-1, 0, 0])
     ctr.set_up([0, 0, 1])
-    ctr.set_zoom(1.3)
+    ctr.set_zoom(0.3)
 
     current_frame = 0
     num_frames = len(pcd_list)
 
     prev = time.time()
     frame_time = 0.5
-    
-    # pcd.points = o3d.utility.Vector3dVector(pcd_list[current_frame % num_frames])
-    # pcd.paint_uniform_color([0, 0, 1])
-    # vis.update_geometry(pcd)
-    # vis.run()
-    
+
     while True:
         current = time.time()
         if current - prev > frame_time: 
@@ -83,6 +84,13 @@ def vis_folder(pcd_list, obb):
             vis.update_geometry(pcd)
             vis.poll_events()
             vis.update_renderer()
+
+            if image_filepath:
+                print(current_frame)
+                print(num_frames)
+                if current_frame < num_frames:
+                    output_image_filepath = os.path.join(image_filepath, str(current_frame) + ".png")
+                    vis.capture_screen_image(output_image_filepath, do_render=True)
 
             prev = current
             current_frame += 1
@@ -104,17 +112,19 @@ def main(args):
         exit()
     
     obb = get_bounding_box(os.path.join(args.folder, "config.ini")) 
-
-    def convert_filename(filename):
-        return float(filename.split('.')[0])
-    filenames = sorted(filenames, key=lambda x: convert_filename(x))
-
+    filenames = sorted(filenames, key=lambda x: float(Path(x).stem))
     pcd_list = []
     for filename in filenames:
         filepath = os.path.join(particle_folder, filename)
         pcd_list.append(get_points_from_file(filepath))
     
-    vis_folder(pcd_list, obb)
+    if args.save:
+        image_filepath = os.path.join(args.folder, "particle_images")
+        if not os.path.exists(image_filepath):
+            os.mkdir(image_filepath)
+        vis_folder(pcd_list, obb, image_filepath = image_filepath)
+    else:
+        vis_folder(pcd_list, obb)
 
 if __name__ == '__main__':
     args = parseArguments()
