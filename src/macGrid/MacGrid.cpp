@@ -77,6 +77,8 @@ MacGrid::MacGrid(string folder)
 
   m_interpolationCoefficient = settings.value(QString("interpolationCoefficient")).toFloat();
 
+  m_foamParticleBoundary = settings.value(QString("foamParticleBoundary")).toFloat();
+
   settings.endGroup();
 }
 
@@ -771,9 +773,8 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     if (cell->material == Material::Solid) continue;
 
     // Update velocity based on pseudopressure
-
     const float cellPseudoPressure = cell->material == Material::Air ? 0 : pseudoPressures[cell->index];
-    
+
     auto xMinKV = m_cells.find(cellIndices + Vector3i(-1, 0, 0));
     if (xMinKV != m_cells.end() && xMinKV->second->material != Material::Solid) {
       cell->u[0] -= cellPseudoPressure;
@@ -1202,4 +1203,56 @@ bool MacGrid::withinBounds(const Vector3i &cellIndices) const
   return 0 <= cellIndices[0] && cellIndices[0] < m_cellCount[0] &&
       0 <= cellIndices[1] && cellIndices[1] < m_cellCount[1] &&
       0 <= cellIndices[2] && cellIndices[2] < m_cellCount[2];
+}
+
+// Given cell indices, add particles to that cell
+void MacGrid::addParticleToCell(int x, int y, int z) {
+
+  // Note: m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
+  const float strataWidth = m_cellWidth / m_strata;
+
+  const Vector3i cellIndices = Vector3i(x,y,z);
+
+#pragma omp parallel for
+  for (int x = 0; x < m_strata; ++x) {
+      for (int y = 0; y < m_strata; ++y) {
+          for (int z = 0; z < m_strata; ++z) {
+              // Get offsets
+              const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
+
+              // Create a new particle
+              Particle * newParticle = new Particle{};
+              newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
+              assert(positionToIndices(newParticle->position) == cellIndices);
+              m_particles.push_back(newParticle);
+          }
+      }
+  }
+}
+
+// ================== Extensions
+
+// Can be called in simulate to add a horizontal square of fluid to the simulation
+void MacGrid::addFluid(int x, int y, int z, int sideLength) {
+#pragma omp parallel for
+    for (int i = 0; i < sideLength; i++) {
+        for (int j = 0; j < sideLength; j++) {
+            Cell * newCell = new Cell{};
+            newCell->cellIndices = Vector3i(x+i,y+j,z);
+            newCell->material = Fluid;
+            m_cells.insert({Vector3i(x+i,y+j,z), newCell});
+            addParticleToCell(x+i,y+j,z);
+        }
+    }
+}
+
+// Can be called in simulate to add foam particles in voxels where curl is above m_foamParticleBoundary
+void MacGrid::addFoamParticles() {
+#pragma omp parallel for
+    for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
+        if (i->second->curl > m_foamParticleBoundary) {
+            // Todo calculate curl of velocity field and set curl value on cell
+            // Todo add foam particles
+        }
+    }
 }

@@ -26,6 +26,9 @@ struct Cell
 
   // Temporary variables valid only within 
   int index = -1;
+
+  // Used for foam particles extension
+  float curl = 0;
 };
 
 #endif // CELL_H

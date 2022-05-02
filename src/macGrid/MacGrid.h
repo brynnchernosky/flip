@@ -74,6 +74,7 @@ class MacGrid
     float m_simulationTime;                     // total time for simulation
     Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
+    float m_foamParticleBoundary;               // for adding foam particles
 
     float calculateDeltaTime();
     void  applyExternalForces(const float deltaTime);
@@ -101,6 +102,12 @@ class MacGrid
     void setCellMaterialLayers(const Material material, const int layer);
 
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
+    void addParticleToCell(int x, int y, int z);
+
+    // Extensions
+    void addFluid(int x, int y, int z, int sideLength);
+    void removeFluid(int x, int y, int z, int sideLength);
+    void addFoamParticles();
 };
 
 #endif // MACGRID_H
