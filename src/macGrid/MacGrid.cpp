@@ -544,11 +544,7 @@ void MacGrid::applyExternalForces(const float deltaTime)
   }
 }
 
-<<<<<<< HEAD
 // Sets the velocity field into solid cells to zero
-=======
-// Sets the velocity field into solid cells to zero 
->>>>>>> a40fca33f89534a5dba5704813d6742694142e3c
 void MacGrid::enforceDirichletBC()
 {
   // Paper 1
