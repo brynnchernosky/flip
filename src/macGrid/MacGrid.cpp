@@ -1250,8 +1250,17 @@ void MacGrid::addFluid(int x, int y, int z, int sideLength) {
 void MacGrid::addFoamParticles() {
 #pragma omp parallel for
     for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
-        if (i->second->curl > m_foamParticleBoundary) {
-            // Todo calculate curl of velocity field and set curl value on cell
+        Vector3i cellIndices = i->first;
+        Cell * cell = i->second;
+        // Curl calculation from equation 28 of "Fluid Flow for the Rest of Us"
+        Vector3f curl(0,0,0);
+        curl[0] += cell->u[2] - m_cells[cellIndices + Vector3i(0,-1,0)]->u[2];
+        curl[0] -= cell->u[1] - m_cells[cellIndices + Vector3i(0,0,-1)]->u[1];
+        curl[1] += cell->u[0] - m_cells[cellIndices + Vector3i(0,0,-1)]->u[0];
+        curl[1] -= cell->u[2] - m_cells[cellIndices + Vector3i(-1,0,0)]->u[2];
+        curl[2] += cell->u[1] - m_cells[cellIndices + Vector3i(-1,0,0)]->u[1];
+        curl[2] -= cell->u[0] - m_cells[cellIndices + Vector3i(0,-1,0)]->u[0];
+        if (curl.norm() > m_foamParticleBoundary) {
             // Todo add foam particles
         }
     }
