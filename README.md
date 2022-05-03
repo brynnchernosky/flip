@@ -7,10 +7,15 @@
 ## Overview
 - In MacGrid::init(), initial fluid position is defined based on input trimesh 
 - Within the MacGrid::simulate() loop:
-    - Timestep is calculated based on the CFL condition
-    - External forces (gravity) are applied to the grid cells
     - A buffer zone is created surrounding the fluid
-    - Divergence is removed from the velocity field
-    - Dirichlet boundary condition is enforced (velocity field into solids is 0)
+    - Velocity field updated based on particle velocities
+    - External forces (gravity) applied to the grid cells
+    - Fluid velocity field extrapolated to air cells
+    - Dirichlet boundary condition enforced (velocity field into solids is 0)
+    - Divergence removed from the velocity field
+    - Fluid velocity field extrapolated to air cells
     - Particle positions are updated based on velocity field
-    - Occassionally, particle positions are output for conversion into output trimesh
+    - Particle positions output for conversion into output trimesh
+- Extensions:
+    - Adding additional fluid to simulation
+    - Adding foam particles to simulation when cell curl above given value 

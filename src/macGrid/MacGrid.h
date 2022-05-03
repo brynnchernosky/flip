@@ -79,9 +79,9 @@ class MacGrid
     float calculateDeltaTime();
     void  applyExternalForces(const float deltaTime);
     void  enforceDirichletBC();
-    void extrapolateFluidCellVelocities();
-    void  transferHelper1(Particle * const particle, const int index);
-    void  transferParticlesToGrid();
+    void  extrapolateFluidCellVelocities();
+    float contributeToCells(const Eigen::Vector3f &xyz, int index) const;
+    void transferParticlesToGrid();
     void  updateParticleVelocities();
     std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
     void updateParticlePositions(float deltaTime);
