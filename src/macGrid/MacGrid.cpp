@@ -172,17 +172,17 @@ void MacGrid::simulate()
     enforceDirichletBC();
     cout << "∟ enforced dirichlet boundary condition" << endl;
 
-    printGrid();
+    // printGrid();
 
     // Given cells, neighbors, and cell velocities, update the velocity field by removing divergence
     updateVelocityFieldByRemovingDivergence();
     cout << "∟ updated velocity field by removing divergence" << endl;
 
-    // Extend velocity (2nd time)
-    extrapolateFluidCellVelocities();
-    cout << "∟ extended cell velocities to air cells (2nd time)" << endl;
+    // // Extend velocity (2nd time)
+    // extrapolateFluidCellVelocities();
+    // cout << "∟ extended cell velocities to air cells (2nd time)" << endl;
 
-    printGrid();
+    // printGrid();
     
     // Given old and new grid velocities, update particle positions using RK2
     updateParticlePositions(deltaTime);
@@ -471,7 +471,7 @@ void MacGrid::fillGridCellsFromInternalPosition(const Material material, const V
   assert(withinBounds(cellIndices));
 #endif
 
-  // Check that it doesn't already exist
+  // Check that it doesn't already exist; if it does and it is fluid, simply return
   if (m_cells.find(cellIndices) != m_cells.end()) {
     assert(m_cells.find(cellIndices)->second->material == Material::Fluid);
     return;
@@ -709,9 +709,12 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     }
   }
 
-  assert(numFluidCells == 1);
-  // m_cells.at(Vector3i(1, 1, 1))->u[2] = -10000;
-  printGrid();
+  // !! Divergence Test A
+  // cout << endl << endl;
+  // assert(numFluidCells == 1);
+  // m_cells.at(Vector3i(1, 1, 0))->u[0] = -1;
+  // printGrid();
+  // cout << endl << endl;
 
   // Create A and b arrays
   SparseMatrix<float> A(numFluidCells, numFluidCells);
@@ -761,12 +764,18 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
   m_solver.compute(A);
   pseudoPressures = m_solver.solve(b);
 
+  // !! Divergence Test B
   // cout << endl << endl;
-  // cout << "Intervening!" << endl;
-  cout << "pseudoPressures.size() = " << pseudoPressures.size() << ", [0] = " << pseudoPressures[0] << endl;
-  // pseudoPressures[0] = 100;
+  // cout << "pseudoPressures.size() = " << pseudoPressures.size() << "," << endl
+  //      << "- [0] = " << pseudoPressures[0] << endl;
+  //      << "- [1] = " << pseudoPressures[1] << endl
+  //      << "- [2] = " << pseudoPressures[2] << endl
+  //      << "- [3] = " << pseudoPressures[3] << endl
+  //      << "- [4] = " << pseudoPressures[4] << endl
+  //      << "- [5] = " << pseudoPressures[5] << endl
+  //      << "- [6] = " << pseudoPressures[6] << endl
+  //      << "- [7] = " << pseudoPressures[7] << endl;
   // cout << endl << endl;
-  // printGrid();
 
   // Use pseudo-pressures to correct velocities
 #pragma omp parallel for
@@ -800,11 +809,11 @@ void MacGrid::updateVelocityFieldByRemovingDivergence()
     }
   }
 
-  cout << endl << endl;
-  printGrid();
-  cout << endl << endl;
-
-  assert(false);
+  // !! Divergence Test C
+  // cout << endl << endl;
+  // printGrid();
+  // cout << endl << endl;
+  // assert(false);
 
   cout << "Debug6" << endl;
 }
@@ -883,9 +892,6 @@ float MacGrid::contributeToCells(const Vector3f &xyz, int index) const
 {
   const Vector3i ijk = Vector3i(floor(xyz[0]), floor(xyz[1]), floor(xyz[2]));
 
-  float weightSum = 0;
-  float returnValue = 0;
-
   for (int l = 0; l < 2; ++l) {
     for (int m = 0; m < 2; ++m) {
       for (int n = 0; n < 2; ++n) {
@@ -895,8 +901,14 @@ float MacGrid::contributeToCells(const Vector3f &xyz, int index) const
 
         // Skip if cell does not exist
         if (m_cells.find(neighborIndices) == m_cells.end()) {
-          cout << "Some weird stuff, createBufferZone messed up" << endl;
-          assert(false);
+          // Turns out, this is actually fine! Zack 3 May 4:30pm
+          // cout << "Some weird stuff, createBufferZone messed up" << endl << endl << endl;
+          // printGrid();
+          // cout << "xyz             = " << Debug::vectorToString(xyz            ) << endl;
+          // cout << "ijk             = " << Debug::vectorToString(ijk            ) << endl;
+          // cout << "offset          = " << Debug::vectorToString(offset         ) << endl;
+          // cout << "neighborIndices = " << Debug::vectorToString(neighborIndices) << endl;
+          // assert(false);
           continue;
         }
         Cell * const cell = m_cells.at(neighborIndices);
@@ -959,7 +971,7 @@ void MacGrid::updateParticleVelocities()
 
     Particle * particle = m_particles[particleIndex];
 
-    cout << "Before: " << Debug::particleToString(particle) << endl;
+    // cout << "Before: " << Debug::particleToString(particle) << endl;
 
     Vector3f pic  = Vector3f::Zero();
     Vector3f flip = Vector3f::Zero();
@@ -982,8 +994,8 @@ void MacGrid::updateParticleVelocities()
     // Update particle with interpolated PIC/FLIP velocities
     particle->velocity = m_interpolationCoefficient * pic + (1 - m_interpolationCoefficient) * (particle->oldVelocity + flip);
 
-    //cout << "pic " << Debug::vectorToString(pic) << ", flip " << Debug::vectorToString(flip) << endl;
-    //cout << "After: " << Debug::particleToString(particle) << endl;
+    // cout << "pic " << Debug::vectorToString(pic) << ", flip " << Debug::vectorToString(flip) << endl;
+    // cout << "After: " << Debug::particleToString(particle) << endl;
   }
 }
 
@@ -1070,8 +1082,6 @@ void MacGrid::updateParticlePositions(const float deltaTime)
   cout << "DebugE" << endl;
 
   resolveParticlePenetratingSolid();
-
-  for (Particle * const particle : m_particles) cout << Debug::particleToString(particle) << endl;
 }
 
 void MacGrid::resolveParticlePenetratingSolid()
@@ -1084,10 +1094,14 @@ void MacGrid::resolveParticlePenetratingSolid()
     Vector3i currIndices = positionToIndices(particle->position);
     if (withinBounds(currIndices)) continue;
 
+    // cout << "before clamp: " << Debug::particleToString(particle) << endl;
+
     // If out of bounds, project it back into the box
     particle->position[0] = clamp(particle->position[0], m_cornerPosition[0] + m_cellWidth / 2, m_otherCornerPosition[0] - m_cellWidth / 2);
     particle->position[1] = clamp(particle->position[1], m_cornerPosition[1] + m_cellWidth / 2, m_otherCornerPosition[1] - m_cellWidth / 2);
     particle->position[2] = clamp(particle->position[2], m_cornerPosition[2] + m_cellWidth / 2, m_otherCornerPosition[2] - m_cellWidth / 2);
+
+    // cout << "after  clamp: " << Debug::particleToString(particle) << endl;
   }
 }
 
@@ -1192,6 +1206,7 @@ void MacGrid::assignParticleCellMaterials(const Material material, const vector<
       cell->material = material;
     } else {
       cout << "particle in solid!" << endl;
+      cout << Debug::particleToString(particle) << endl;
     }
   }
 }
