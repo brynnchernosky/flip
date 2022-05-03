@@ -17,6 +17,10 @@ struct Particle
   
 
   Eigen::Vector3f oldPosition = Eigen::Vector3f::Zero();
+  Eigen::Vector3f oldVelocity = Eigen::Vector3f::Zero();
+
+  // Used for foam particle extension
+  bool foamParticle = false;
 
 };
 
