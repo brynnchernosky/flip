@@ -1276,7 +1276,7 @@ void MacGrid::addFluid(int x, int y, int z, int sideLength) {
     }
 }
 
-// Can be called in simulate to make particles in voxels where curl is above m_foamParticleBoundary into foam particles
+// Can be called in simulate to set foamParticles = true for particles in voxels where curl is above m_foamParticleBoundary
 void MacGrid::addFoamParticles() {
 #pragma omp parallel for
     for (int i = 0; i < m_particles.size(); i++) {
@@ -1286,11 +1286,7 @@ void MacGrid::addFoamParticles() {
     for (auto i = m_cells.begin(); i != m_cells.end(); i++) {
         Vector3i cellIndices = i->first;
         Cell * cell = i->second;
-<<<<<<< HEAD
-        // Curl calculation from equation 28 of "Fluid Flow for the Rest of Us"
-=======
         // Curl calculation uses equation 28 from "Fluid Flow for the Rest of Us"
->>>>>>> e30a5298b1fdba18fa80a3d7f837e31499f83a0c
         Vector3f curl(0,0,0);
         curl[0] += cell->u[2] - m_cells[cellIndices + Vector3i(0,-1,0)]->u[2];
         curl[0] -= cell->u[1] - m_cells[cellIndices + Vector3i(0,0,-1)]->u[1];
@@ -1299,13 +1295,9 @@ void MacGrid::addFoamParticles() {
         curl[2] += cell->u[1] - m_cells[cellIndices + Vector3i(-1,0,0)]->u[1];
         curl[2] -= cell->u[0] - m_cells[cellIndices + Vector3i(0,-1,0)]->u[0];
         if (curl.norm() > m_foamParticleBoundary) {
-<<<<<<< HEAD
-            // Todo add foam particles
-=======
             for (int j = 0; j < cell->particles.size(); j++) {
                 cell->particles[j]->foamParticle = true;
             }
->>>>>>> e30a5298b1fdba18fa80a3d7f837e31499f83a0c
         }
     }
 }
