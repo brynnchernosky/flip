@@ -4,7 +4,7 @@
 void Testing::testMeshParticleMesh(std::string folder) {
     MacGrid grid(folder);
     grid.init();
-    grid.printParticles(folder + "/particles/volume.csv");
+    // grid.printParticles(folder + "/particles/volume.csv");
 
     const string particleFilepath = folder + "/particles";
     const string sdfFilepath = folder + "/sdfs";

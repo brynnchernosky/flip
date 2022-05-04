@@ -30,9 +30,9 @@ class MacGrid
 
     // Debugging
     void setGridCellVelocity(const Eigen::Vector3i cellIndices, const Eigen::Vector3f velocity1, const Eigen::Vector3f velocity2);
-    void printParticles(std::string output_filepath);
     void addParticle(const Eigen::Vector3f position, const Eigen::Vector3f velocity);
-    void printGrid() const;
+    void printGrid()      const;
+    void printParticles() const;
 
     // Current unit-testing target
     void updateVelocityFieldByRemovingDivergence();
@@ -76,16 +76,20 @@ class MacGrid
     float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
     float m_foamParticleBoundary;               // for adding foam particles
 
-    float calculateDeltaTime();
     void  applyExternalForces(const float deltaTime);
     void  enforceDirichletBC();
     void  extrapolateFluidCellVelocities();
-    float contributeToCells(const Eigen::Vector3f &xyz, int index) const;
-    void transferParticlesToGrid();
+    void  contributeToCells(const Eigen::Vector3f &velocity, const Eigen::Vector3f &xyz, int index) const;
+    void  transferParticlesToGrid();
     void  updateParticleVelocities();
     std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
-    void updateParticlePositions(float deltaTime);
-    void resolveParticlePenetratingSolid();
+
+    void  updateParticlePositions(float deltaTime);
+    float calculateSubDeltaTime() const;
+    void  doOneRK2(const float subDeltaTime);
+
+    void resolveParticleBoundsCollisionHelper(Particle *particle, const int index);
+    void resolveParticleBoundsCollision();
 
     // Positional Helpers
 
