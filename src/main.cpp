@@ -30,6 +30,16 @@ bool isInvalidPath(string thingName, bool isFile, string filepath)
   return false;
 }
 
+void clearDirectory(string directory) {
+    QDir dir(QString::fromStdString(directory));
+    dir.setFilter(QDir::Files);
+    foreach(QString dirFile, dir.entryList())
+    {
+        dir.remove(dirFile);
+    }
+    std::cout << "Cleared directory: " << directory << std::endl;
+}
+
 // This is a command line application with two arguments
 int main(int argc, char *argv[])
 {
@@ -74,6 +84,8 @@ int main(int argc, char *argv[])
     const string particleFilepath = folder + "/particles";
     if (isInvalidPath("particles directory", false, particleFilepath)) {
       QDir().mkdir(QString::fromStdString(particleFilepath));
+    } else {
+        clearDirectory(particleFilepath);
     }
 
     MacGrid grid(folder);
@@ -96,14 +108,16 @@ int main(int argc, char *argv[])
     const string sdfFilepath = folder + "/sdfs";
     if (isInvalidPath("sdfs directory", false, sdfFilepath)) {
       QDir().mkdir(QString::fromStdString(sdfFilepath));
+    } else {
+        clearDirectory(sdfFilepath);
     }
 
     Reconstruction converter(folder);
     converter.surface_reconstruction(particleFilepath, sdfFilepath);
 
   } else if (method == "test") {
-      Testing::testMeshParticleMesh(folder);
-
+//      Testing::testMeshParticleMesh(folder);
+      clearDirectory(folder);
   } else {
 
     cout << "Error: unknown method!" << endl;
