@@ -30,7 +30,7 @@ def render_obj(input_filepath, output_filepath):
 
     bpy.ops.object.material_slot_add()
     # Get material
-    mat = bpy.data.materials.get("F My_Water")
+    mat = bpy.data.materials.get("My_Water")
     target.data.materials[0] = mat
     
     bpy.ops.render.render()
