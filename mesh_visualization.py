@@ -28,20 +28,11 @@ def render_obj(input_filepath, output_filepath):
     bpy.context.view_layer.objects.active = target
     bpy.context.active_object.select_set(state=True)
 
-    # bpy.ops.object.material_slot_add()
-    # # Get material
-    # mat = bpy.data.materials.get("F water")
-    # if mat is None:
-    # # create material
-    #     mat = bpy.data.materials.new(name="F water")
-        
-    # if target.data.materials:
-    # # assign to 1st material slot
-    #     target.data.materials[0] = mat
-    # else:
-    # # no slots
-    #     target.data.materials.append(mat)
-            
+    bpy.ops.object.material_slot_add()
+    # Get material
+    mat = bpy.data.materials.get("F My_Water")
+    target.data.materials[0] = mat
+    
     bpy.ops.render.render()
 
     D.images['Render Result'].save_render(filepath=output_filepath)
