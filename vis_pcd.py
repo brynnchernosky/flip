@@ -68,13 +68,13 @@ def vis_folder(pcd_list, obb, image_filepath = None):
     ctr.set_front([0, -1, 0])
     ctr.set_lookat([-1, 0, 0])
     ctr.set_up([0, 0, 1])
-    ctr.set_zoom(0.3)
+    ctr.set_zoom(0.8)
 
     current_frame = 0
     num_frames = len(pcd_list)
 
     prev = time.time()
-    frame_time = 0.5
+    frame_time = 0.01
 
     while True:
         current = time.time()
@@ -86,17 +86,12 @@ def vis_folder(pcd_list, obb, image_filepath = None):
             vis.update_renderer()
 
             if image_filepath:
-                print(current_frame)
-                print(num_frames)
                 if current_frame < num_frames:
                     output_image_filepath = os.path.join(image_filepath, str(current_frame) + ".png")
                     vis.capture_screen_image(output_image_filepath, do_render=True)
 
             prev = current
             current_frame += 1
-        
-        if current_frame == 50:
-            vis.destroy_window()
 
 def main(args):    
     # Accumulate file names in list 
