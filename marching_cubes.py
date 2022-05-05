@@ -10,8 +10,6 @@ def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, default="test", 
         help="Parent folder to look in")
-    parser.add_argument("--visualization", action="store_true", 
-        help="If enabled creates intermediate visualization for each object")
     args = parser.parse_args()
     return args
 
@@ -41,6 +39,7 @@ def generate_mesh(input_sdf):
     mesh = o3d.geometry.TriangleMesh()
     mesh.vertices = o3d.utility.Vector3dVector(np.asarray(vertices))
     mesh.triangles = o3d.utility.Vector3iVector(np.asarray(triangles))
+    mesh.merge_close_vertices(1e-5)
     mesh.compute_vertex_normals()
     mesh.compute_triangle_normals()
 
@@ -93,7 +92,6 @@ def main(args):
         name = Path(filename).stem
         output_filepath = os.path.join(output_folder, name) + ".obj"
         o3d.io.write_triangle_mesh(output_filepath, mesh)
-
     print("Finished Conversion")
 
 if __name__ == '__main__':

@@ -5,19 +5,9 @@ from pathlib import Path
 import configparser
 import numpy as np
 
-parent_folder = "/Users/adrianchang/desktop/CS/CS2240/flip/results/workingFolder"
-
 C = bpy.context
 D = bpy.data
 scene = D.scenes['Scene']
-
-def get_enclosure_bounds(config_filepath):
-    config = configparser.ConfigParser()
-    config.read(config_filepath)
-
-    gridHeight = config.getint('Conversion', 'gridHeight') #x
-    gridWidth = config.getint('Conversion', 'gridWidth') #y
-    gridLength = config.getint('Conversion', 'gridLength') #z
 
 def render_obj(input_filepath, output_filepath):
     bpy.ops.import_scene.obj(filepath=input_filepath, axis_forward='Y', axis_up='Z')
