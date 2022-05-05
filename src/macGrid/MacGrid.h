@@ -64,11 +64,13 @@ class MacGrid
 
     // ================== Simulation Helpers
 
-    float m_simulationTimestep;                 // timestep
-    float m_simulationTime;                     // total time for simulation
-    Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
-    float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
-    float m_foamParticleBoundary;               // for adding foam particles
+    float m_framePeriod;              // time (in seconds) in between frames
+    float m_minCFLTime;               // the minimum timestep that calculateCFLTime() can return
+    float m_maxCFLTime;               // the maximum timestep that calculateCFLTime() can return
+    float m_simulationTime;           // total time for simulation
+    Eigen::Vector3f m_gravityVector;  // acceleration vector due to gravity
+    float m_interpolationCoefficient; // for interpolating between PIC and FLIP
+    float m_foamParticleBoundary;     // for adding foam particles
 
     // Calculate the timestep that can be taken while obeying the CFL condition
     float calculateCFLTime() const;
