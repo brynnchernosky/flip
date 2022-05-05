@@ -22,25 +22,21 @@ class MacGrid
     MacGrid(std::string folder);
     ~MacGrid();
 
-    void validate();
     void init();
+
     void simulate();
+
     void setCellAndParticleRelationships();
+
     void createBufferZone();
 
-    // Debugging
-    void setGridCellVelocity(const Eigen::Vector3i cellIndices, const Eigen::Vector3f velocity1, const Eigen::Vector3f velocity2);
-    void addParticle(const Eigen::Vector3f position, const Eigen::Vector3f velocity);
+    // For Debugging
     void printGrid()      const;
     void printParticles() const;
-
-    // Current unit-testing target
-    void updateVelocityFieldByRemovingDivergence();
 
   private:
 
     std::string m_outputFolder;
-
     float m_cellWidth;
     int   m_strata;
     float m_maxAverageSurfaceParticlesPerCellFaceArea; // surfaceParticles.size() <= this * surfaceArea
@@ -51,64 +47,85 @@ class MacGrid
     std::unordered_map<Eigen::Vector3i, Cell *, HashFunction> m_cells;
     std::vector<Particle *> m_particles;
 
-    // Initialization Helpers
+    // ================== Initialization Helpers
 
-    std::string             m_solidMeshFilepath;
+    std::string m_solidMeshFilepath;
+    std::string m_fluidMeshFilepath;
     std::vector<Particle *> m_solidSurfaceParticles;
-
-    std::string             m_fluidMeshFilepath;
     std::vector<Particle *> m_fluidSurfaceParticles;
-    Eigen::Vector3f         m_fluidInternalPosition;
+    Eigen::Vector3f m_fluidInternalPosition;
 
-    void meshToSurfaceParticles(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
+    void getSurfaceParticlesFromMesh(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
 
-    void fillGridCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
-    void fillGridCellsRecursive           (const Material material, const int layerNumber, const Eigen::Vector3i &cellPosition);
+    void fillCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
+    void fillCellsRecursiveHelper     (const Material material, const Eigen::Vector3i &cellPosition);
 
-    void addParticlesToCells              (const Material material);
+    void spawnParticlesInFluidCells();
 
-    // Simulation Helpers
+    // ================== Simulation Helpers
 
-    float m_kCFL = 2;                           // IDK lol
-    float m_simulationTimestep;                 // timestep
-    float m_simulationTime;                     // total time for simulation
-    Eigen::Vector3f m_gravityVector;            // acceleration vector due to gravity
-    float m_interpolationCoefficient;           // for interpolating between PIC and FLIP
-    float m_foamParticleBoundary;               // for adding foam particles
+    float m_framePeriod;              // time (in seconds) in between frames
+    float m_minCFLTime;               // the minimum timestep that calculateCFLTime() can return
+    float m_maxCFLTime;               // the maximum timestep that calculateCFLTime() can return
+    float m_simulationTime;           // total time for simulation
+    Eigen::Vector3f m_gravityVector;  // acceleration vector due to gravity
+    float m_interpolationCoefficient; // for interpolating between PIC and FLIP
+    float m_foamParticleBoundary;     // for adding foam particles
 
-    void  applyExternalForces(const float deltaTime);
-    void  enforceDirichletBC();
-    void  extrapolateFluidCellVelocities();
-    void  contributeToCells(const Eigen::Vector3f &velocity, const Eigen::Vector3f &xyz, int index) const;
-    void  transferParticlesToGrid();
-    void  updateParticleVelocities();
+    // Calculate the timestep that can be taken while obeying the CFL condition
+    float calculateCFLTime() const;
+
+    // Update the dynamic grid
+    void updateGridExcludingVelocity();
+
+    // Update the velocity field (grid cell velocities)
+    void updateGridVelocity();
+    void contributeToCells(const Eigen::Vector3f &velocity, const Eigen::Vector3f &xyz, int index) const;
+
+    // Save a copy of the velocity field for FLIP calculations
+    void saveCopyOfGridVelocity();
+
+    // Apply external forces to the velocity field
+    void applyExternalForces(const float deltaTime);
+
+    // Enforce the Neumann boundary condition to prevent flow from air/fluid cells into solid cells
+    void enforceBoundaryConditions();
+
+    // Solve for pressure and remove divergence from the velocity field
+    void updateGridVelocityByRemovingDivergence();
+
+    // Update particle positions with RK2
+    void updateParticlePositions(float deltaTime);
+    void updateParticleVelocities();
     std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
 
-    void  updateParticlePositions(float deltaTime);
-    float calculateSubDeltaTime() const;
-    void  doOneRK2(const float subDeltaTime);
+    // Helpers to resolve particle collisions
+    void resolveParticleCollisions();
+    void resolveParticleOutOfBoundsHelper(Particle * particle, const int index);
+    void resolveParticleInSolidHelper(Particle * particle, Cell * const cell);
 
-    void resolveParticleBoundsCollisionHelper(Particle *particle, const int index);
-    void resolveParticleBoundsCollision();
+    // ================== Common (Initialization and Simulation) Helpers
 
-    // Positional Helpers
+    void setCellsBasedOnParticles(const Material material, const std::vector<Particle *> &particles);
+
+    void setCellLayerBasedOnMaterial();
+
+    // ================== Positional Helpers
 
     const Eigen::Vector3f toRegularizedPosition  (const Eigen::Vector3f &position)    const;
     const Eigen::Vector3i positionToIndices      (const Eigen::Vector3f &position)    const;
     const Eigen::Vector3f indicesToBasePosition  (const Eigen::Vector3i &cellIndices) const;
     const Eigen::Vector3f indicesToCenterPosition(const Eigen::Vector3i &cellIndices) const;
 
-    // Miscellaneous Helpers
+    // ================== Miscellaneous Helpers
 
     QFuture<void> saveParticlesToFile(const float time) const;
 
-    void assignParticleCellMaterials(const Material material, const std::vector<Particle *> &particles);
-    void setCellMaterialLayers(const Material material, const int layer);
-
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
-    void addParticleToCell(int x, int y, int z);
 
-    // Extensions
+    // ================== Extension Helpers
+
+    void addParticleToCell(int x, int y, int z);
     void addFluid(int x, int y, int z, int sideLength);
     void removeFluid(int x, int y, int z, int sideLength);
     void addFoamParticles();

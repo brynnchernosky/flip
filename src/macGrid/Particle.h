@@ -7,21 +7,17 @@ struct Cell;
 
 struct Particle
 {
-  Cell * cell;
+  Particle() {};
+  Particle(Eigen::Vector3f _p) : position(_p) {};
+  Particle(Eigen::Vector3f _p, Eigen::Vector3f _v) : position(_p), velocity(_v) {};
 
   Eigen::Vector3f position = Eigen::Vector3f::Zero();
   Eigen::Vector3f velocity = Eigen::Vector3f::Zero();
 
-  // Eigen::Vector3f picVelocity;
-  // Eigen::Vector3f flipVelocity;
-  
-
   Eigen::Vector3f oldPosition = Eigen::Vector3f::Zero();
   Eigen::Vector3f oldVelocity = Eigen::Vector3f::Zero();
 
-  // Used for foam particle extension
   bool foamParticle = false;
-
 };
 
 #endif // PARTICLE_H
