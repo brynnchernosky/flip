@@ -116,6 +116,8 @@ MacGrid::~MacGrid()
 
 void MacGrid::init()
 {
+  cout << "Starting initialization" << endl;
+
   // Solid
   getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
   // for (unsigned int i = 0; i < 12; ++i) {
@@ -137,6 +139,8 @@ void MacGrid::init()
 
 void MacGrid::simulate()
 {
+  cout << "Starting simulation for " << m_simulationTime << " seconds" << endl;
+
   // Prepare to asynchronously save files
   vector<QFuture<void>> futures;
 
@@ -341,7 +345,7 @@ void MacGrid::fillCellsRecursiveHelper(const Material material, const Vector3i &
 // Given a material, populates all cells with that material with particles using stratified sampling
 void MacGrid::spawnParticlesInFluidCells()
 {
-  // Note: m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
+  // m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
   const float strataWidth = m_cellWidth / m_strata;
 
   // For each cell
@@ -417,7 +421,7 @@ void MacGrid::updateGridExcludingVelocity()
   // Save cells to iterate through
   vector<const Vector3i> iterCellIndices;
   iterCellIndices.reserve(m_cells.size());
-  
+
   // Create a buffer zone around the fluid
   for (int bufferLayer = 1; bufferLayer < BUFFER_LAYERS; ++bufferLayer) {
     const int bufferLayerSub1 = bufferLayer - 1;
@@ -472,11 +476,11 @@ void MacGrid::updateGridExcludingVelocity()
     // Clear the saved cells
     iterCellIndices.clear();
   }
-  
+
   // Delete unnecessary cells
   auto kv = m_cells.cbegin();
   while (kv != m_cells.cend()) {
-    
+
     // Do not delete solid cells or cells with layer != -1
     if (kv->second->material == Material::Solid || kv->second->layer != -1) {
       ++kv;
@@ -504,7 +508,7 @@ void MacGrid::updateGridVelocity()
     const Vector3f &velocity = particle->velocity;
     const Vector3f &position = particle->position;
     const Vector3f regularizedPosition = toRegularizedPosition(position);
-    
+
     contributeToCells(velocity, regularizedPosition - Vector3f(0, 0.5, 0.5), 0);
     contributeToCells(velocity, regularizedPosition - Vector3f(0.5, 0, 0.5), 1);
     contributeToCells(velocity, regularizedPosition - Vector3f(0.5, 0.5, 0), 2);
@@ -562,7 +566,7 @@ void MacGrid::saveCopyOfGridVelocity()
   }
 }
 
-// Applies external forces to the velocity field
+// Applies external forces (gravity) to the velocity field
 void MacGrid::applyExternalForces(const float deltaTime)
 {
   const Vector3f gravityDeltaV = m_gravityVector * deltaTime;
@@ -586,22 +590,22 @@ void MacGrid::enforceBoundaryConditions()
     if (cell->material != Material::Solid) continue;
 
     // Prevent flow into solid cells from air and fluid cells
-    
+
     auto neighborKV = m_cells.find(cellIndices + Vector3i(-1, 0, 0));
     if (neighborKV != m_cells.end() && neighborKV->second->material != Material::Solid) cell->u[0] = min(0.f, cell->u[0]);
-    
+
     neighborKV = m_cells.find(cellIndices + Vector3i(0, -1, 0));
     if (neighborKV != m_cells.end() && neighborKV->second->material != Material::Solid) cell->u[1] = min(0.f, cell->u[1]);
-    
+
     neighborKV = m_cells.find(cellIndices + Vector3i(0, 0, -1));
     if (neighborKV != m_cells.end() && neighborKV->second->material != Material::Solid) cell->u[2] = min(0.f, cell->u[2]);
-    
+
     neighborKV = m_cells.find(cellIndices + Vector3i(1, 0, 0));
     if (neighborKV != m_cells.end() && neighborKV->second->material != Material::Solid) neighborKV->second->u[0] = max(0.f, neighborKV->second->u[0]);
-    
+
     neighborKV = m_cells.find(cellIndices + Vector3i(0, 1, 0));
     if (neighborKV != m_cells.end() && neighborKV->second->material != Material::Solid) neighborKV->second->u[1] = max(0.f, neighborKV->second->u[1]);
-    
+
     neighborKV = m_cells.find(cellIndices + Vector3i(0, 0, 1));
     if (neighborKV != m_cells.end() && neighborKV->second->material != Material::Solid) neighborKV->second->u[2] = max(0.f, neighborKV->second->u[2]);
   }
@@ -649,7 +653,7 @@ void MacGrid::updateGridVelocityByRemovingDivergence()
         cout << endl << Debug::vectorToString(neighborOffset) << endl << endl;
         assert(false);
       }
-      
+
       if (m_cells[cellIndices + neighborOffset]->material == Solid) {
         centerCoefficient += 1;
       } else if (m_cells[cellIndices + neighborOffset]->material == Fluid) {
@@ -875,18 +879,19 @@ void MacGrid::setCellsBasedOnParticles(const Material material, const vector<Par
   }
 
   // Iterate through particles
-  for (Particle * const particle : particles) {
+  for (unsigned int i = 0; i < particles.size(); ++i) {
 
+    Particle *particle = particles[i];
     const Vector3i cellIndices = positionToIndices(particle->position);
     auto kv = m_cells.find(cellIndices);
 
     // If cell does not exist
     if (kv == m_cells.end()) {
-      
+
       // Skip if cell is outside simulation bounds
       if (!withinBounds(cellIndices)) {
         if (material == Material::Fluid) {
-          cout << "Marker particle out of bounds!" << endl;
+          cout << "Marker particle " << i << " out of bounds!" << endl;
           cout << Debug::particleToString(particle) << endl;
           assert(false);
         }
@@ -911,7 +916,7 @@ void MacGrid::setCellsBasedOnParticles(const Material material, const vector<Par
     if (cell->material != Material::Solid) {
       cell->material = material;
     } else if (material == Material::Fluid) {
-      cout << "Marker particle in solid!" << endl;
+      cout << "Marker particle " << i << " in solid!" << endl;
       cout << Debug::particleToString(particle) << endl;
       assert(false);
     }
@@ -992,7 +997,7 @@ QFuture<void> MacGrid::saveParticlesToFile(const float time) const
 
   vector<const Vector3f> particlePositions;
   for (Particle * const particle : m_particles) particlePositions.push_back(particle->position);
-  
+
   return QtConcurrent::run(saveParticlesHelper, filepath, particlePositions);
 }
 
@@ -1011,7 +1016,7 @@ bool MacGrid::withinBounds(const Vector3i &cellIndices) const
 // Given cell indices, add particles to that cell
 void MacGrid::addParticleToCell(int x, int y, int z)
 {
-  // Note: m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
+  // m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
   const float strataWidth = m_cellWidth / m_strata;
 
   const Vector3i cellIndices(x,y,z);
