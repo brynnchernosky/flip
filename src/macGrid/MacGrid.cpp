@@ -166,6 +166,11 @@ void MacGrid::simulate()
       cout << "∟ set timestep to " << deltaTime << endl;
     }
 
+    // Add additional fluid to simulation at specified position and size
+    if (loopNumber != 0) {
+      addFluid(8, 8, 8, 3, time);
+    }
+
     // Given particle positions, update the dynamic grid
     updateGridExcludingVelocity();
     cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
@@ -191,12 +196,15 @@ void MacGrid::simulate()
     cout << "∟ updated velocity field by removing divergence" << endl;
 
     // Given grid cells' velocities (old and new), particle positions, and particle velocities, update particle positions with RK2
-    updateParticlePositions(deltaTime);
+    updateParticlePositions(deltaTime, m_particles);
     cout << "∟ updated particle positions" << endl;
 
     // Increment time
     if (mustSave) {
       mustSave = false;
+
+      // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
+      //addFoamParticles()
 
       // Save the particles to a file
       futures.push_back(saveParticlesToFile(time));
@@ -711,49 +719,49 @@ void MacGrid::updateGridVelocityByRemovingDivergence()
 }
 
 // Updates particle positions with RK2
-void MacGrid::updateParticlePositions(const float deltaTime)
+void MacGrid::updateParticlePositions(const float deltaTime, const vector<Particle *> &particles)
 {
   // Save old positions and velocities
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * particle   = m_particles[i];
+  for (unsigned int i = 0; i < particles.size(); ++i) {
+    Particle * particle   = particles[i];
     particle->oldPosition = particle->position;
     particle->oldVelocity = particle->velocity;
   }
 
   // Get their new velocities (relies on current position and old velocity)
-  updateParticleVelocities();
 
+  updateParticleVelocities(particles);
   // Take a half step
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * particle = m_particles[i];
+  for (unsigned int i = 0; i < particles.size(); ++i) {
+    Particle * particle = particles[i];
     particle->position  = particle->position + particle->velocity * deltaTime / 2;
   }
 
-  resolveParticleCollisions();
-
+  resolveParticleCollisions(particles);
   // Get their new velocities again (relies on current position and old velocity)
   updateParticleVelocities();
+  updateParticleVelocities(particles);
 
   // Take a full step from their old positions
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
-    Particle * particle = m_particles[i];
+  for (unsigned int i = 0; i < particles.size(); ++i) {
+    Particle * particle = particles[i];
     particle->position  = particle->oldPosition + particle->velocity * deltaTime;
   }
 
-  resolveParticleCollisions();
+  resolveParticleCollisions(particles);
 }
 
 // Helper to updates particle velocities by interpolating PIC and FLIP velocities
-void MacGrid::updateParticleVelocities()
+void MacGrid::updateParticleVelocities(const vector<Particle *> &particles)
 {
   // For every particle
 #pragma omp parallel for
-  for (unsigned int particleIndex = 0; particleIndex < m_particles.size(); ++particleIndex) {
+  for (unsigned int particleIndex = 0; particleIndex < particles.size(); ++particleIndex) {
 
-    Particle * particle = m_particles[particleIndex];
+    Particle * particle = particles[particleIndex];
 
     Vector3f pic  = Vector3f::Zero();
     Vector3f flip = Vector3f::Zero();
@@ -818,13 +826,13 @@ pair<float, float> MacGrid::getInterpolatedPICAndFLIP(const Vector3f &xyz, const
 }
 
 // Helper to resolve particle collisions
-void MacGrid::resolveParticleCollisions()
+void MacGrid::resolveParticleCollisions(const std::vector<Particle *> &particles)
 {
   // For each particle
 #pragma omp parallel for
-  for (unsigned int i = 0; i < m_particles.size(); ++i) {
+  for (unsigned int i = 0; i < particles.size(); ++i) {
 
-    Particle * particle = m_particles[i];
+    Particle * particle = particles[i];
     Vector3i currIndices = positionToIndices(particle->position);
 
     // If out of bounds, project it back into the box
@@ -876,6 +884,7 @@ void MacGrid::setCellsBasedOnParticles(const Material material, const vector<Par
 #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
     kv->second->particles.clear();
+    kv->second->particles.reserve(8);
   }
 
   // Iterate through particles
@@ -913,6 +922,7 @@ void MacGrid::setCellsBasedOnParticles(const Material material, const vector<Par
 
     // If cell does exist, and is not solid
     Cell * cell = kv->second;
+    cell->particles.push_back(particle);
     if (cell->material != Material::Solid) {
       cell->material = material;
     } else if (material == Material::Fluid) {
@@ -1013,13 +1023,14 @@ bool MacGrid::withinBounds(const Vector3i &cellIndices) const
 // ================== Extension Helpers ===================================
 // ========================================================================
 
-// Given cell indices, add particles to that cell
-void MacGrid::addParticleToCell(int x, int y, int z)
+// Used for adding fluid: given cell indices, add particles to that cell with given velocity
+vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
 {
   // m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
   const float strataWidth = m_cellWidth / m_strata;
 
   const Vector3i cellIndices(x,y,z);
+  vector<Particle *> newParticles;
 
 #pragma omp parallel for
   for (int x = 0; x < m_strata; ++x) {
@@ -1030,30 +1041,49 @@ void MacGrid::addParticleToCell(int x, int y, int z)
         // Create a new particle
         Particle * newParticle = new Particle();
         newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
+        newParticle->velocity = Vector3f(0,0,m_fluidVelocityZ);
         assert(positionToIndices(newParticle->position) == cellIndices);
         m_particles.push_back(newParticle);
+        newParticles.push_back(newParticle);
       }
     }
   }
+  return newParticles;
 }
 
-// Can be called in simulate to add a horizontal square of fluid to the simulation
-void MacGrid::addFluid(int x, int y, int z, int sideLength)
+// Can be called in simulate to add a horizontal square of fluid particles to the simulation
+void MacGrid::addFluid(int x, int y, int z, int sideLength, const float time)
 {
+  if (time < m_fluidAddCounter * m_spaceBetweenFluid) return;
+
 #pragma omp parallel for
   for (int i = 0; i < sideLength; ++i) {
     for (int j = 0; j < sideLength; ++j) {
-      if (m_cells.find(Vector3i(x+i,y+j,z)) != m_cells.end() && m_cells[Vector3i(x+i,y+j,z)]->material != Material::Air) continue;
-      Cell * newCell;
-      if (m_cells.find(Vector3i(x+i,y+j,z)) == m_cells.end()) {
-        newCell = new Cell();
+      // Create or update cell
+      if (m_cells.find(Vector3i(x+i, y+j, z)) == m_cells.end()) {
+        Cell * newCell = new Cell();
         newCell->cellIndices = Vector3i(x+i,y+j,z);
-      } else {
-        newCell = m_cells[Vector3i(x+i,y+j,z)];
+        newCell->material = Material::Fluid;
+        m_cells.insert({Vector3i(x+i, y+j, z), newCell});
+      } else if (m_cells[Vector3i(x+i,y+j,z)]->material == Material::Air) {
+        m_cells[Vector3i(x+i,y+j,z)]->material = Material::Fluid;
+      } else if (m_cells[Vector3i(x+i,y+j,z)]->material == Material::Solid) {
+        continue;
       }
-      newCell->material = Fluid;
-      m_cells.insert({Vector3i(x+i, y+j, z), newCell});
-      addParticleToCell(x+i, y+j, z);
+
+      // Add fluid particles to cell
+      vector<Particle *> newParticles = addParticlesToCell(x+i, y+j, z);
+
+      // Change particle positions to appear as if they were added at the correct time (could make
+      float timeSinceAdded = m_simulationTime - (m_fluidAddCounter * m_spaceBetweenFluid);
+      // updateParticlePositions(timeSinceAdded, newParticles);
+      for (unsigned int k = 0; k < newParticles.size(); ++k) {
+        newParticles[k]->position += newParticles[k]->velocity * timeSinceAdded;
+      }
+      for (unsigned int k = 0; k < newParticles.size(); k++) {
+        cout << "particle location after updating: " << newParticles[k]->position << endl;
+      }
+      m_fluidAddCounter++;
     }
   }
 }
