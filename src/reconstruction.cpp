@@ -19,7 +19,7 @@ Reconstruction::Reconstruction(std::string folder)
                                                  settings.value(QString("cornerPositionY")).toFloat(),
                                                  settings.value(QString("cornerPositionZ")).toFloat());
 
-    int factor = 2;
+    int factor = 1;
     m_gridHeight = settings.value(QString("cellCountX")).toInt() * factor;
     m_gridWidth = settings.value(QString("cellCountY")).toInt() * factor;
     m_gridLength = settings.value(QString("cellCountZ")).toInt() * factor;

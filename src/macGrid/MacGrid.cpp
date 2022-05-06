@@ -339,13 +339,15 @@ void MacGrid::spawnParticlesInFluidCells()
     for (int x = 0; x < m_strata; ++x) {
       for (int y = 0; y < m_strata; ++y) {
         for (int z = 0; z < m_strata; ++z) {
+            Particle * newParticle = new Particle();
+            do {
+                // Get offsets
+                const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
 
-          // Get offsets
-          const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
+                // Create a new particle
+                newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
+            } while (positionToIndices(newParticle->position) != cellIndices);
 
-          // Create a new particle
-          Particle * newParticle = new Particle();
-          newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
           assert(positionToIndices(newParticle->position) == cellIndices);
 
           // Save the particle
