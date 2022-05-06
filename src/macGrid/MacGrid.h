@@ -54,8 +54,10 @@ class MacGrid
     std::vector<Particle *> m_solidSurfaceParticles;
     std::vector<Particle *> m_fluidSurfaceParticles;
     Eigen::Vector3f m_fluidInternalPosition;
+    Eigen::Affine3f m_solidTransformation;
+    Eigen::Affine3f m_fluidTransformation;
 
-    void getSurfaceParticlesFromMesh(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
+    void getSurfaceParticlesFromMesh(std::vector<Particle *> &surfaceParticles, std::string meshFilepath, const Eigen::Affine3f &transformation);
 
     void fillCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
     void fillCellsRecursiveHelper     (const Material material, const Eigen::Vector3i &cellPosition);
@@ -68,6 +70,9 @@ class MacGrid
     float m_minCFLTime;               // the minimum timestep that calculateCFLTime() can return
     float m_maxCFLTime;               // the maximum timestep that calculateCFLTime() can return
     float m_simulationTime;           // total time for simulation
+    float m_spaceBetweenFluid = 0.05; // amount of time between fluid being added to simulation
+    int m_fluidAddCounter = 1;        // number of times fluid has been added to simulation
+    float m_fluidVelocityZ = -0.05;    // z velocity of fluid being added
     Eigen::Vector3f m_gravityVector;  // acceleration vector due to gravity
     float m_interpolationCoefficient; // for interpolating between PIC and FLIP
     float m_foamParticleBoundary;     // for adding foam particles
@@ -95,12 +100,12 @@ class MacGrid
     void updateGridVelocityByRemovingDivergence();
 
     // Update particle positions with RK2
-    void updateParticlePositions(float deltaTime);
-    void updateParticleVelocities();
+    void updateParticlePositions(float deltaTime, const std::vector<Particle *> &particles);
+    void updateParticleVelocities(const std::vector<Particle *> &particles);
     std::pair<float, float> getInterpolatedPICAndFLIP(const Eigen::Vector3f &xyz, const int index) const;
 
     // Helpers to resolve particle collisions
-    void resolveParticleCollisions();
+    void resolveParticleCollisions(const std::vector<Particle *> &particles);
     void resolveParticleOutOfBoundsHelper(Particle * particle, const int index);
     void resolveParticleInSolidHelper(Particle * particle, Cell * const cell);
 
@@ -125,8 +130,8 @@ class MacGrid
 
     // ================== Extension Helpers
 
-    void addParticleToCell(int x, int y, int z);
-    void addFluid(int x, int y, int z, int sideLength);
+    std::vector<Particle *> addParticlesToCell(int x, int y, int z);
+    void addFluid(int x, int y, int z, int sideLength, const float time);
     void removeFluid(int x, int y, int z, int sideLength);
     void addFoamParticles();
 };
