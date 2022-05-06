@@ -89,8 +89,8 @@ MacGrid::MacGrid(string folder)
   m_framePeriod = settings.value(QString("framePeriod")).toFloat();
   m_minCFLTime = m_framePeriod / 10 + __FLT_EPSILON__;
   m_maxCFLTime = m_framePeriod / 2 + __FLT_EPSILON__;
-  m_simulationTime = settings.value(QString("simulationTime")).toInt();
 
+  m_simulationTime = settings.value(QString("simulationTime")).toFloat();
   m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
                              settings.value(QString("gravityY")).toFloat(),
                              settings.value(QString("gravityZ")).toFloat());
