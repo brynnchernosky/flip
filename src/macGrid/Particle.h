@@ -2,6 +2,9 @@
 #define PARTICLE_H
 
 #include <Eigen/Dense>
+#include <iostream>
+
+using namespace std;
 
 struct Cell;
 

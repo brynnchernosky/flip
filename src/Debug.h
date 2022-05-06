@@ -38,7 +38,8 @@ namespace Debug {
 
   std::string cellToString(Cell * const c)
   {
-    return std::string("Cell with material ")
+    return vectorToString(c->cellIndices)
+           + ": cell with material "
            + materialToString(c->material)
            + ", layer "
            + std::to_string(c->layer)

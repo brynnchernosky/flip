@@ -60,7 +60,6 @@ class MacGrid
     void getSurfaceParticlesFromMesh(std::vector<Particle *> &surfaceParticles, std::string meshFilepath, const Eigen::Affine3f &transformation);
 
     void fillCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
-    void fillCellsRecursiveHelper     (const Material material, const Eigen::Vector3i &cellPosition);
 
     void spawnParticlesInFluidCells();
 
@@ -111,7 +110,7 @@ class MacGrid
 
     // ================== Common (Initialization and Simulation) Helpers
 
-    void setCellsBasedOnParticles(const Material material, const std::vector<Particle *> &particles);
+    void setCellsBasedOnParticles(const Material material, const std::vector<Particle *> &particles, const bool preventBadPositions);
 
     void setCellLayerBasedOnMaterial();
 

@@ -2,7 +2,7 @@
 #define CELL_H
 
 #include <Eigen/Dense>
-#include <set>
+#include <vector>
 
 #include "src/macGrid/Material.h"
 
