@@ -68,6 +68,24 @@ MacGrid::MacGrid(string folder)
                                      settings.value(QString("fluidInternalPositionY")).toFloat(),
                                      settings.value(QString("fluidInternalPositionZ")).toFloat());
 
+  m_solidTransformation = Affine3f(
+                            Translation3f(settings.value(QString("solidTranslationX")).toFloat(),
+                                          settings.value(QString("solidTranslationY")).toFloat(),
+                                          settings.value(QString("solidTranslationZ")).toFloat()) *
+                            Scaling      (settings.value(QString("solidScale")).toFloat()) *
+                            AngleAxis<float>(settings.value(QString("solidRotationX")).toFloat() / 180.0f * M_PI, Vector3f::UnitX()) *
+                            AngleAxis<float>(settings.value(QString("solidRotationY")).toFloat() / 180.0f * M_PI, Vector3f::UnitY()) *
+                            AngleAxis<float>(settings.value(QString("solidRotationZ")).toFloat() / 180.0f * M_PI, Vector3f::UnitZ()));
+
+  m_fluidTransformation = Affine3f(
+                            Translation3f(settings.value(QString("fluidTranslationX")).toFloat(),
+                                          settings.value(QString("fluidTranslationY")).toFloat(),
+                                          settings.value(QString("fluidTranslationZ")).toFloat()) *
+                            Scaling      (settings.value(QString("fluidScale")).toFloat()) *
+                            AngleAxis<float>(settings.value(QString("fluidRotationX")).toFloat() / 180.0f * M_PI, Vector3f::UnitX()) *
+                            AngleAxis<float>(settings.value(QString("fluidRotationY")).toFloat() / 180.0f * M_PI, Vector3f::UnitY()) *
+                            AngleAxis<float>(settings.value(QString("fluidRotationZ")).toFloat() / 180.0f * M_PI, Vector3f::UnitZ()));
+
   m_framePeriod = settings.value(QString("framePeriod")).toFloat();
   m_minCFLTime = m_framePeriod / 10 + __FLT_EPSILON__;
   m_maxCFLTime = m_framePeriod / 2 + __FLT_EPSILON__;
@@ -99,7 +117,7 @@ MacGrid::~MacGrid()
 void MacGrid::init()
 {
   // Solid
-  // getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath);
+  getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
   // for (unsigned int i = 0; i < 12; ++i) {
   //   m_solidSurfaceParticles.push_back(
   //         new Particle(indicesToCenterPosition({13, i, 6}), {0, 0, 1}));
@@ -109,7 +127,7 @@ void MacGrid::init()
   // setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles);
 
   // Fluid
-  getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath);
+  getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
   setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles);
   fillCellsFromInternalPosition(Material::Fluid, m_fluidInternalPosition);
   spawnParticlesInFluidCells();
@@ -233,7 +251,7 @@ void MacGrid::printParticles() const
 // ========================================================================
 
 // Populates a given vector with particles derived from the surface of the given mesh
-void MacGrid::getSurfaceParticlesFromMesh(vector<Particle *> &surfaceParticles, const string meshFilepath)
+void MacGrid::getSurfaceParticlesFromMesh(vector<Particle *> &surfaceParticles, const string meshFilepath, const Affine3f &transform)
 {
   vector<Vector3f> vertices, normals;
   vector<Vector3i> faces;
@@ -247,10 +265,11 @@ void MacGrid::getSurfaceParticlesFromMesh(vector<Particle *> &surfaceParticles, 
 
   // Spawn particles on the mesh's vertices
   for (const Vector3f &vertexPosition : vertices) {
-    surfaceParticles.push_back(new Particle(vertexPosition));
+    surfaceParticles.push_back(new Particle(transform * vertexPosition));
   }
-  
+
   // Spawn particles on the mesh's faces
+  auto normalTransform = transform.linear().inverse().transpose();
   for (unsigned int i = 0; i < faces.size(); ++i) {
 
     const Vector3i &face   = faces[i];
@@ -273,7 +292,7 @@ void MacGrid::getSurfaceParticlesFromMesh(vector<Particle *> &surfaceParticles, 
     // Use stratified sampling
     for (int abStratum = 0; abStratum < abStrata; ++abStratum) {
       for (int acStratum = 0; acStratum < acStrata; ++acStratum) {
-        
+
         // Get position within triangle face
         float abWeight = (abStratum + getRandomFloat()) / abStrata;
         float acWeight = (acStratum + getRandomFloat()) / acStrata;
@@ -282,9 +301,9 @@ void MacGrid::getSurfaceParticlesFromMesh(vector<Particle *> &surfaceParticles, 
           acWeight = 1 - acWeight;
         }
         const Vector3f surfacePosition = a + abWeight * ab + acWeight * ac;
-        
+
         // Save particle with normal as velocity
-        surfaceParticles.push_back(new Particle(surfacePosition, normal));
+        surfaceParticles.push_back(new Particle(transform * surfacePosition, normalTransform * normal));
       }
     }
   }

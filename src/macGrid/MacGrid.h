@@ -54,8 +54,10 @@ class MacGrid
     std::vector<Particle *> m_solidSurfaceParticles;
     std::vector<Particle *> m_fluidSurfaceParticles;
     Eigen::Vector3f m_fluidInternalPosition;
+    Eigen::Affine3f m_solidTransformation;
+    Eigen::Affine3f m_fluidTransformation;
 
-    void getSurfaceParticlesFromMesh(std::vector<Particle *> &surfaceParticles, std::string meshFilepath);
+    void getSurfaceParticlesFromMesh(std::vector<Particle *> &surfaceParticles, std::string meshFilepath, const Eigen::Affine3f &transformation);
 
     void fillCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
     void fillCellsRecursiveHelper     (const Material material, const Eigen::Vector3i &cellPosition);
