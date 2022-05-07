@@ -53,6 +53,7 @@ class MacGrid
     std::string m_fluidMeshFilepath;
     std::vector<Particle *> m_solidSurfaceParticles;
     std::vector<Particle *> m_fluidSurfaceParticles;
+    Eigen::Vector3f m_solidInternalPosition;
     Eigen::Vector3f m_fluidInternalPosition;
     Eigen::Affine3f m_solidTransformation;
     Eigen::Affine3f m_fluidTransformation;
@@ -61,6 +62,8 @@ class MacGrid
 
     void fillCellsFromInternalPosition(const Material material, const Eigen::Vector3f &internalPosition);
 
+    void propagateSolidNormals();
+    
     void spawnParticlesInFluidCells();
 
     // ================== Simulation Helpers
