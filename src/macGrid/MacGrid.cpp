@@ -90,8 +90,8 @@ MacGrid::MacGrid(string folder)
                             AngleAxis<float>(settings.value(QString("fluidRotationZ")).toFloat() / 180.0f * M_PI, Vector3f::UnitZ()));
 
   m_framePeriod = settings.value(QString("framePeriod")).toFloat();
-  m_minCFLTime = m_framePeriod / 10 + __FLT_EPSILON__;
-  m_maxCFLTime = m_framePeriod / 2 + __FLT_EPSILON__;
+  m_minCFLTime = m_framePeriod * 0.011;
+  m_maxCFLTime = m_framePeriod * 0.501;
 
   m_simulationTime = settings.value(QString("simulationTime")).toFloat();
   m_gravityVector = Vector3f(settings.value(QString("gravityX")).toFloat(),
@@ -171,7 +171,7 @@ void MacGrid::simulate()
     float deltaTime = calculateCFLTime();
     cout << "∟ calculated timestep of " << deltaTime << endl;
     if (deltaTime + time > nextSaveTime) {
-      deltaTime = nextSaveTime - time + __FLT_EPSILON__;
+      deltaTime = nextSaveTime - time + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__;
       mustSave = true;
       cout << "∟ set timestep to " << deltaTime << endl;
     }
@@ -360,7 +360,7 @@ void MacGrid::fillCellsFromInternalPosition(const Material material, const Vecto
     cout << Debug::vectorToString(internalIndices) << endl;
     cout << Debug::cellToString(m_cells.at(internalIndices)) << endl;
     assert(m_cells.find(internalIndices)->second->material == material);
-    cerr << "Did not fill cells from internal position as specified cell was already fluid!" << endl;
+    cerr << "Did not fill cells from internal position as specified cell was already filled!" << endl;
     return;
   }
 
@@ -986,6 +986,7 @@ void MacGrid::resolveParticleCollisions(const std::vector<Particle *> &particles
         resolveParticleOutOfBoundsHelper(particle, 1);
         resolveParticleOutOfBoundsHelper(particle, 2);
         currIndices = positionToIndices(particle->position);
+        kv = m_cells.find(currIndices);
         ++attemptA;
       }
 
