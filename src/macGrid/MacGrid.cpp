@@ -1159,6 +1159,7 @@ extern void saveParticlesHelper(const string filepath, const vector<const Vector
 // Function to call to save particles to a file
 QFuture<void> MacGrid::saveParticlesToFile(const float time) const
 {
+    // Todo: add something to indicate if a particle is a foam particle
   const string timeString = to_string(time);
   const string filepath = m_outputFolder + "/" + string(10 - timeString.size(), '0') + timeString + ".csv";
 
