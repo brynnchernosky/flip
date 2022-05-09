@@ -134,13 +134,6 @@ void Reconstruction::writeGrid(string output_filepath) {
     }
 
     QTextStream fout(&sdf_file);
-
-    std::string dimensions =
-            std::to_string(m_gridHeight) + ", " +
-            std::to_string(m_gridWidth) + ", " +
-            std::to_string(m_gridLength);
-    fout << QString::fromStdString(dimensions) << endl;
-
     for (int x = 0; x < m_gridHeight; x++) {
         for (int y = 0; y < m_gridWidth; y++) {
             for (int z = 0; z < m_gridLength; z++) {

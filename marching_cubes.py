@@ -13,11 +13,18 @@ def parseArguments():
     args = parser.parse_args()
     return args
 
-def generate_mesh(input_sdf):
+def get_grid_dims(config_filepath):
+    config = configparser.ConfigParser()
+    config.read(config_filepath)
+
+    cellCountX = config.getint('Simulation', 'cellCountX')
+    cellCountY = config.getint('Simulation', 'cellCountY')
+    cellCountZ = config.getint('Simulation', 'cellCountZ')
+
+    return (cellCountX, cellCountY, cellCountZ)
+
+def generate_mesh(input_sdf, dims):
     fin = open(input_sdf, "r")
-    # First line is grid dimensions, rest of lines [grid_pos as x, y, z] [signed_distance]
-    dims = fin.readline()
-    dims = dims.split(',')
 
     x_dim = int(dims[0])
     y_dim = int(dims[1])
@@ -67,6 +74,8 @@ def vis_folder(mesh_list, obb):
         vis.destroy_window()
 
 def main(args):
+    config_filepath = os.path.join(args.folder, "config.ini")
+    grid_dims = get_grid_dims(config_filepath)
     output_folder = os.path.join(args.folder, "meshes")
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
@@ -87,7 +96,7 @@ def main(args):
     meshes = []
     print("Reading SDFs and writing Meshes")
     for filename in filenames:
-        mesh = generate_mesh(filename)
+        mesh = generate_mesh(filename, grid_dims)
         meshes.append(mesh)
         name = Path(filename).stem
         output_filepath = os.path.join(output_folder, name) + ".obj"
