@@ -11,7 +11,6 @@ using namespace std;
 class Reconstruction
 {
 public:
-    Reconstruction();
     Reconstruction(std::string folder);
     ~Reconstruction();
 
@@ -25,7 +24,6 @@ public:
 
 
 private:
-    void init();
     /**
      * @brief loadParticles - for a given input filepath
      * @param input_filepath - filepath to a text file where each line contains three comma
@@ -78,7 +76,7 @@ private:
     int m_gridWidth; //corresponds with y
     int m_gridLength; // corresponds with z
 
-    Eigen::Vector3f m_center; //Represents the center of the grid
+    Eigen::Vector3f m_corner_offset; //Represents offset to get the particles to be all positive
 
     std::vector<Eigen::Vector3f> _particles;
     std::unordered_map<int, std::unordered_set<int>> m_cellToParticle;

@@ -9,43 +9,30 @@
 
 // ================== Constructors
 
-Reconstruction::Reconstruction():
-    m_gridSpacing(1),
-    m_gridHeight(30),
-    m_gridWidth(30),
-    m_gridLength(30)
-{
-    init();
-}
-
 Reconstruction::Reconstruction(std::string folder)
 {
     const std::string configFilepath = folder + "/config.ini";
     QSettings settings(QString::fromStdString(configFilepath), QSettings::IniFormat);
-    settings.beginGroup("/Conversion");
-    m_gridSpacing = settings.value("gridSpacing").toFloat();
-    m_gridHeight = settings.value("gridHeight").toInt();
-    m_gridWidth = settings.value("gridWidth").toInt();
-    m_gridLength = settings.value("gridLength").toInt();
+
+    settings.beginGroup("/Simulation");
+    m_corner_offset = - Eigen::Vector3f(settings.value(QString("cornerPositionX")).toFloat(),
+                                                 settings.value(QString("cornerPositionY")).toFloat(),
+                                                 settings.value(QString("cornerPositionZ")).toFloat());
+
+    int factor = 1;
+    m_gridHeight = settings.value(QString("cellCountX")).toInt() * factor;
+    m_gridWidth = settings.value(QString("cellCountY")).toInt() * factor;
+    m_gridLength = settings.value(QString("cellCountZ")).toInt() * factor;
+    m_gridSpacing = settings.value(QString("cellWidth")).toFloat() / (float) factor;
     settings.endGroup();
-    init();
+
+    m_searchRadius = 3 * m_gridSpacing;
+    m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
 }
 
 // ================== Destructor
 
 Reconstruction::~Reconstruction() {}
-
-// ================== Initializer
-
-void Reconstruction::init() {
-    m_searchRadius = 3 * m_gridSpacing;
-    m_numOfGrids = m_gridLength*m_gridWidth*m_gridHeight;
-
-    float height_offset = (m_gridHeight / 2.f) * m_gridSpacing;
-    float width_offset = (m_gridWidth / 2.f) * m_gridSpacing;
-    float length_offset = (m_gridLength / 2.f) * m_gridSpacing;
-    m_center = Eigen::Vector3f(height_offset, width_offset, length_offset);
-}
 
 // ================== Generate per file SDFs
 
@@ -114,7 +101,10 @@ void Reconstruction::loadParticles(string input_filepath){
         particle_pos[1] = positions[1].toFloat();
         particle_pos[2] = positions[2].toFloat();
 
-        particle_pos = (particle_pos + m_center);
+        particle_pos = (particle_pos + m_corner_offset);
+        if (particle_pos[0] * particle_pos[1] * particle_pos[2] < 0) {
+            std::cout << "particle negative dimension value" << std::endl;
+        }
         _particles.push_back(particle_pos);
     }
 
@@ -144,13 +134,6 @@ void Reconstruction::writeGrid(string output_filepath) {
     }
 
     QTextStream fout(&sdf_file);
-
-    std::string dimensions =
-            std::to_string(m_gridHeight) + ", " +
-            std::to_string(m_gridWidth) + ", " +
-            std::to_string(m_gridLength);
-    fout << QString::fromStdString(dimensions) << endl;
-
     for (int x = 0; x < m_gridHeight; x++) {
         for (int y = 0; y < m_gridWidth; y++) {
             for (int z = 0; z < m_gridLength; z++) {

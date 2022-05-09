@@ -10,17 +10,21 @@ def parseArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, default="test", 
         help="Parent folder to look in")
-    parser.add_argument("--visualization", action="store_true", 
-        help="If enabled creates intermediate visualization for each object")
     args = parser.parse_args()
     return args
 
-def generate_mesh(input_sdf):
-    print("Reading", input_sdf)
+def get_grid_dims(config_filepath):
+    config = configparser.ConfigParser()
+    config.read(config_filepath)
+
+    cellCountX = config.getint('Simulation', 'cellCountX')
+    cellCountY = config.getint('Simulation', 'cellCountY')
+    cellCountZ = config.getint('Simulation', 'cellCountZ')
+
+    return (cellCountX, cellCountY, cellCountZ)
+
+def generate_mesh(input_sdf, dims):
     fin = open(input_sdf, "r")
-    # First line is grid dimensions, rest of lines [grid_pos as x, y, z] [signed_distance]
-    dims = fin.readline()
-    dims = dims.split(',')
 
     x_dim = int(dims[0])
     y_dim = int(dims[1])
@@ -39,34 +43,19 @@ def generate_mesh(input_sdf):
     fin.close()
 
     vertices, triangles = mcubes.marching_cubes(u, 0)
-    center = [x_dim/2, y_dim/2, z_dim/2]
-    vertices = vertices - center
-
     mesh = o3d.geometry.TriangleMesh()
     mesh.vertices = o3d.utility.Vector3dVector(np.asarray(vertices))
     mesh.triangles = o3d.utility.Vector3iVector(np.asarray(triangles))
+    mesh.merge_close_vertices(1e-5)
     mesh.compute_vertex_normals()
+    mesh.compute_triangle_normals()
 
     return mesh
 
-def get_bounding_box(config_filepath):
-    config = configparser.ConfigParser()
-    config.read(config_filepath)
-
-    gridHeight = config.getint('Conversion', 'gridHeight')
-    gridWidth = config.getint('Conversion', 'gridWidth')
-    gridLength = config.getint('Conversion', 'gridLength')
-
-    extent = np.array([gridHeight, gridWidth, gridLength])
-    minBound = - extent / 2
-    maxBound = extent - (extent / 2)
-    center = (minBound + maxBound) / 2
-    print(extent)
-    print(center)
-
-    obb = o3d.geometry.OrientedBoundingBox(center, np.eye(3), extent)
-
-    return obb
+def clear_directory(folder):
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        os.unlink(file_path)
 
 def vis_folder(mesh_list, obb):
     for mesh in mesh_list:
@@ -85,9 +74,14 @@ def vis_folder(mesh_list, obb):
         vis.destroy_window()
 
 def main(args):
+    config_filepath = os.path.join(args.folder, "config.ini")
+    grid_dims = get_grid_dims(config_filepath)
     output_folder = os.path.join(args.folder, "meshes")
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
+    else:
+        # Clear directory 
+        clear_directory(output_folder)
 
     filenames = []
     input_folder = os.path.join(args.folder, "sdfs")
@@ -100,19 +94,15 @@ def main(args):
     
     filenames = sorted(filenames, key=lambda x: float(Path(x).stem))
     meshes = []
+    print("Reading SDFs and writing Meshes")
     for filename in filenames:
-        print("Reading from", filename)
-        mesh = generate_mesh(filename)
+        mesh = generate_mesh(filename, grid_dims)
         meshes.append(mesh)
         name = Path(filename).stem
         output_filepath = os.path.join(output_folder, name) + ".obj"
-        print("Writing to", output_filepath)
         o3d.io.write_triangle_mesh(output_filepath, mesh)
+    print("Finished Conversion")
 
-    # if args.visualization:
-    #     obb = get_bounding_box(os.path.join(args.folder, "config.ini"))
-    #     vis_folder(meshes, obb)
-    
 if __name__ == '__main__':
     args = parseArguments()
     main(args)
