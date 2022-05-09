@@ -18,18 +18,12 @@ win32 {
 SOURCES += \
     libs/glew-1.10.0/src/glew.c \
     src/testing.cpp \
-    src/view.cpp \
     src/flip.cpp \
     src/main.cpp \
     src/reconstruction.cpp \
-    src/mainwindow.cpp \
-    src/viewformat.cpp \
     src/graphics/shape.cpp \
     src/macGrid/MacGrid.cpp \
-    src/graphics/MeshLoader.cpp \
-    src/graphics/Shader.cpp \
-    src/graphics/GraphicsDebug.cpp \
-    src/graphics/camera.cpp
+    src/graphics/MeshLoader.cpp
 
 HEADERS += \
     src/flip.h \
@@ -42,20 +36,7 @@ HEADERS += \
     src/macGrid/Material.h \
     src/graphics/shape.h \
     src/graphics/MeshLoader.h \
-    src/mainwindow.h \
-    src/testing.h \
-    src/view.h \
-    src/viewformat.h \
-    src/graphics/Shader.h \
-    src/graphics/ShaderAttribLocations.h \
-    src/graphics/GraphicsDebug.h \
-    src/graphics/camera.h \
-    ui_mainwindow.h
-
-FORMS += src/mainwindow.ui
-
-RESOURCES += \
-    res/shaders/shaders.qrc
+    src/testing.h
 
 HOME_DIR = $$(HOME)
 
@@ -65,10 +46,3 @@ DEPENDPATH     += "$${HOME_DIR}/eigen-git-mirror"
 
 INCLUDEPATH += src libs glm libs/glew-1.10.0/include
 DEPENDPATH += src libs glm libs/glew-1.10.0/include
-
-DISTFILES += \
-    res/shaders/shader.vert \
-    res/shaders/shader.frag \
-    src/config.ini
-
-
