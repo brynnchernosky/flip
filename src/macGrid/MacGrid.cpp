@@ -169,11 +169,11 @@ void MacGrid::simulate()
 
     // Given particle velocities, calculate the timestep that can be taken while obeying the CFL condition
     float deltaTime = calculateCFLTime();
-    cout << "∟ calculated timestep of " << deltaTime << endl;
+    //cout << "∟ calculated timestep of " << deltaTime << endl;
     if (deltaTime + time > nextSaveTime) {
       deltaTime = nextSaveTime - time + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__;
       mustSave = true;
-      cout << "∟ set timestep to " << deltaTime << endl;
+      //cout << "∟ set timestep to " << deltaTime << endl;
     }
 
     // // Add additional fluid to simulation at specified position and size
@@ -181,31 +181,31 @@ void MacGrid::simulate()
 
     // Given particle positions, update the dynamic grid
     updateGridExcludingVelocity();
-    cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
+    //cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
 
     // Given particle velocities, update the velocity field (grid cell velocities)
     updateGridVelocity();
-    cout << "∟ updated velocity field (from " << m_particles.size() << " particles)" << endl;
+    //cout << "∟ updated velocity field (from " << m_particles.size() << " particles)" << endl;
 
     // Given grid cells' velocities, save a copy of the velocity field for FLIP calculations
     saveCopyOfGridVelocity();
-    cout << "∟ saved copy of velocity field" << endl;
+    //cout << "∟ saved copy of velocity field" << endl;
 
     // Given grid cells' velocities, apply external forces to the velocity field
     applyExternalForces(deltaTime);
-    cout << "∟ applied external forces" << endl;
+    //cout << "∟ applied external forces" << endl;
 
     // Given grid cells' velocities, enforce the Neumann boundary condition to prevent flow from air/fluid cells into solid cells
     enforceBoundaryConditions();
-    cout << "∟ enforced boundary conditions" << endl;
+    //cout << "∟ enforced boundary conditions" << endl;
 
     // Given grid cells' velocities, solve for pressure and remove divergence from the velocity field
     updateGridVelocityByRemovingDivergence();
-    cout << "∟ updated velocity field by removing divergence" << endl;
+    //cout << "∟ updated velocity field by removing divergence" << endl;
 
     // Given grid cells' velocities (old and new), particle positions, and particle velocities, update particle positions with RK2
     updateParticlePositions(deltaTime, m_particles);
-    cout << "∟ updated particle positions" << endl;
+    //cout << "∟ updated particle positions" << endl;
 
     // Increment time
     if (mustSave) {
@@ -219,7 +219,7 @@ void MacGrid::simulate()
 
       // Save the particles to a file
       futures.push_back(saveParticlesToFile(time));
-      cout << "∟ started saving particles (frame number " << saveNumber << ")" << endl;
+      cout << "∟ started saving " << m_particles.size() << " particles (frame number " << saveNumber << ")" << endl;
 
       // Increase nextSaveTime
       ++saveNumber;
@@ -1226,7 +1226,7 @@ vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
 // Can be called in simulate to add a horizontal square of fluid particles to the simulation
 void MacGrid::addFluid(int x, int y, int z, int sideLength, const float time)
 {
-  if (time < m_fluidAddCounter * m_spaceBetweenFluid) return;
+  if (time < m_fluidAddCounter * m_framePeriod / 10) return;
 
 #pragma omp parallel for
   for (int i = 0; i < sideLength; ++i) {
@@ -1247,7 +1247,7 @@ void MacGrid::addFluid(int x, int y, int z, int sideLength, const float time)
       vector<Particle *> newParticles = addParticlesToCell(x+i, y+j, z);
 
       // Change particle positions to appear as if they were added at the correct time (could make
-      float timeSinceAdded = m_simulationTime - (m_fluidAddCounter * m_spaceBetweenFluid);
+      float timeSinceAdded = m_simulationTime - (m_fluidAddCounter * m_framePeriod);
       // updateParticlePositions(timeSinceAdded, newParticles);
       for (unsigned int k = 0; k < newParticles.size(); ++k) {
         newParticles[k]->position += newParticles[k]->velocity * timeSinceAdded;

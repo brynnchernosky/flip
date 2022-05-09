@@ -73,7 +73,6 @@ class MacGrid
     float m_maxCFLTime;               // the maximum timestep that calculateCFLTime() can return
     float m_simulationTime;           // total time for simulation
 
-    float m_spaceBetweenFluid = 0.01; // amount of time between fluid being added to simulation
     int m_fluidAddCounter = 0;        // number of times fluid has been added to simulation
     float m_fluidVelocityZ = -0.1;    // z velocity of fluid being added
 
