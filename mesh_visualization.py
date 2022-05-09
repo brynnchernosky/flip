@@ -57,10 +57,10 @@ def main():
     filenames = sorted(filenames, key=lambda x: float(Path(x).stem))
 
     print("Iterating through filenames")
-    for i, filename in enumerate(filenames):
+    for filename in filenames:
         #Import relevant objs
         input_filepath = os.path.join(mesh_folder, filename)
-        output_filepath = os.path.join(render_folder, i + ".png")
+        output_filepath = os.path.join(render_folder, Path(filename).stem + ".png")
         print(input_filepath)
         print(output_filepath)
         render_obj(input_filepath, output_filepath)
