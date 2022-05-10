@@ -209,7 +209,9 @@ void MacGrid::simulate()
       mustSave = false;
 
       // Add additional fluid to simulation at specified position and size
-      //addFluid(8, 8, 8, 3, time);
+      if (saveNumber % 2 == 0) {
+          //addFluid(8, 8, 8, 3, time);
+      }
 
       // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
       // addFoamParticles()
@@ -1218,13 +1220,13 @@ vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
   for (int x = 0; x < m_strata; ++x) {
     for (int y = 0; y < m_strata; ++y) {
       for (int z = 0; z < m_strata; ++z) {
-        // Get offsets
-        const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
         // Create a new particle
         Particle * newParticle = new Particle();
-        newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x+a, y+b, z+c) * strataWidth;
+        do {
+          const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
+          newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x + a, y + b, z + c) * strataWidth;
+        } while (positionToIndices(newParticle->position) != cellIndices);
         newParticle->velocity = Vector3f(0,0,m_fluidVelocityZ);
-        assert(positionToIndices(newParticle->position) == cellIndices);
         m_particles.push_back(newParticle);
         newParticles.push_back(newParticle);
       }
