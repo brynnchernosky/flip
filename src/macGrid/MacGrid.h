@@ -73,9 +73,9 @@ class MacGrid
     float m_maxCFLTime;               // the maximum timestep that calculateCFLTime() can return
     float m_simulationTime;           // total time for simulation
 
-    int m_fluidAddCounter = 0;        // number of times fluid has been added to simulation
-    float m_fluidVelocityX = 0.05;   // x velocity of fluid being added
-    float m_fluidVelocityZ = -0.1;    // z velocity of fluid being added
+    Eigen::Vector3f m_fluidVelocity;
+    Eigen::Vector3i m_fluidIndices;
+    int m_fluidSize;
 
     Eigen::Vector3f m_gravityVector;  // acceleration vector due to gravity
     float m_interpolationCoefficient; // for interpolating between PIC and FLIP
@@ -135,7 +135,7 @@ class MacGrid
     // ================== Extension Helpers
 
     std::vector<Particle *> addParticlesToCell(int x, int y, int z);
-    void addFluid(int x, int y, int z, int sideLength, const float time);
+    void addFluid(int x, int y, int z, int sideLength);
     void removeFluid(int x, int y, int z, int sideLength);
     void addFoamParticles();
 };
