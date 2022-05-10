@@ -119,30 +119,30 @@ MacGrid::~MacGrid()
 
 void MacGrid::init()
 {
-//   cout << "Starting initialization" << endl;
+   cout << "Starting initialization" << endl;
 
-//   // Solid
-//   getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-//   setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-//   setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-//   fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-//   propagateSolidNormals();
+   // Solid
+   getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+   setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+   setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+   fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+   propagateSolidNormals();
 
-//   unsigned int count = 0, count2 = 0;
-//   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-//     if (!withinBounds(kv->first)) continue;
-//     if (kv->second->material == Material::Solid) {
-//       ++count;
-//       if (kv->second->layer == -2) ++count2;
-//     }
-//   }
-//   cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
+   unsigned int count = 0, count2 = 0;
+   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+     if (!withinBounds(kv->first)) continue;
+     if (kv->second->material == Material::Solid) {
+       ++count;
+       if (kv->second->layer == -2) ++count2;
+     }
+   }
+   cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
 
-//   // Fluid
-//   getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
-//   setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
-//   fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
-//   spawnParticlesInFluidCells();
+   // Fluid
+   getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
+   setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
+   fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
+   spawnParticlesInFluidCells();
 }
 
 // ================== Simulation
@@ -209,7 +209,7 @@ void MacGrid::simulate()
       mustSave = false;
 
       // Add additional fluid to simulation at specified position and size
-      addFluid(8, 8, 8, 3, time);
+      //addFluid(8, 8, 8, 3, time);
 
       // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
       // addFoamParticles()
