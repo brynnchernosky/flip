@@ -119,30 +119,30 @@ MacGrid::~MacGrid()
 
 void MacGrid::init()
 {
-  // cout << "Starting initialization" << endl;
+   cout << "Starting initialization" << endl;
 
-  // // Solid
-  // getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-  // setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-  // setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-  // fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-  // propagateSolidNormals();
+   // Solid
+   getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+   setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+   setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+   fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+   propagateSolidNormals();
 
-  // unsigned int count = 0, count2 = 0;
-  // for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-  //   if (!withinBounds(kv->first)) continue;
-  //   if (kv->second->material == Material::Solid) {
-  //     ++count;
-  //     if (kv->second->layer == -2) ++count2;
-  //   }
-  // }
-  // cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
+   unsigned int count = 0, count2 = 0;
+   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+     if (!withinBounds(kv->first)) continue;
+     if (kv->second->material == Material::Solid) {
+       ++count;
+       if (kv->second->layer == -2) ++count2;
+     }
+   }
+   cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
 
-  // // Fluid
-  // getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
-  // setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
-  // fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
-  // spawnParticlesInFluidCells();
+   // Fluid
+   getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
+   setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
+   fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
+   spawnParticlesInFluidCells();
 }
 
 // ================== Simulation
@@ -165,7 +165,7 @@ void MacGrid::simulate()
   // Start simulation loop
   while (time < m_simulationTime) {
 
-    cout << "================== Starting loop " << loopNumber << " at time = " << time << endl;
+    //cout << "================== Starting loop " << loopNumber << " at time = " << time << endl;
 
     // Given particle velocities, calculate the timestep that can be taken while obeying the CFL condition
     float deltaTime = calculateCFLTime();
@@ -175,9 +175,6 @@ void MacGrid::simulate()
       mustSave = true;
       //cout << "∟ set timestep to " << deltaTime << endl;
     }
-
-    // // Add additional fluid to simulation at specified position and size
-    addFluid(8, 8, 8, 3, time);
 
     // Given particle positions, update the dynamic grid
     updateGridExcludingVelocity();
@@ -210,6 +207,9 @@ void MacGrid::simulate()
     // Increment time
     if (mustSave) {
       mustSave = false;
+
+      // Add additional fluid to simulation at specified position and size
+      //addFluid(8, 8, 8, 3, time);
 
       // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
       // addFoamParticles()
@@ -767,6 +767,7 @@ void MacGrid::updateGridVelocityByRemovingDivergence()
       kv->second->index = -1;
     }
   }
+  if (numFluidCells == 0) return;
 
   // Create A and b arrays
   SparseMatrix<float> A(numFluidCells, numFluidCells);
@@ -812,7 +813,7 @@ void MacGrid::updateGridVelocityByRemovingDivergence()
   A.setFromTriplets(coefficients.begin(), coefficients.end());
 
   // Solve for pseudo-pressures
-  VectorXf pseudoPressures(m_cells.size());
+  VectorXf pseudoPressures(numFluidCells);
   m_solver.compute(A);
   pseudoPressures = m_solver.solve(b);
 
@@ -1226,7 +1227,6 @@ vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
 // Can be called in simulate to add a horizontal square of fluid particles to the simulation
 void MacGrid::addFluid(int x, int y, int z, int sideLength, const float time)
 {
-  if (time < m_fluidAddCounter * m_framePeriod / 10) return;
 
 #pragma omp parallel for
   for (int i = 0; i < sideLength; ++i) {

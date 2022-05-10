@@ -74,7 +74,7 @@ class MacGrid
     float m_simulationTime;           // total time for simulation
 
     int m_fluidAddCounter = 0;        // number of times fluid has been added to simulation
-    float m_fluidVelocityZ = -0.1;    // z velocity of fluid being added
+    float m_fluidVelocityZ = -0.05;    // z velocity of fluid being added
 
     Eigen::Vector3f m_gravityVector;  // acceleration vector due to gravity
     float m_interpolationCoefficient; // for interpolating between PIC and FLIP
