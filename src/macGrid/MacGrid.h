@@ -127,7 +127,7 @@ class MacGrid
 
     // ================== Miscellaneous Helpers
 
-    QFuture<void> saveParticlesToFile(const float time) const;
+    QFuture<void> saveParticlesToFile(const float time, bool saveParticle) const;
 
     bool withinBounds(const Eigen::Vector3i &cellIndices) const;
 
