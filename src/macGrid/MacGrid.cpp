@@ -209,7 +209,7 @@ void MacGrid::simulate()
       mustSave = false;
 
       // Add additional fluid to simulation at specified position and size
-      if (saveNumber % 2 == 0) {
+      if (saveNumber % 6 == 0) {
           //addFluid(8, 8, 8, 3, time);
       }
 
@@ -1226,7 +1226,7 @@ vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
           const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
           newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x + a, y + b, z + c) * strataWidth;
         } while (positionToIndices(newParticle->position) != cellIndices);
-        newParticle->velocity = Vector3f(0,0,m_fluidVelocityZ);
+        newParticle->velocity = Vector3f(m_fluidVelocityX,0,m_fluidVelocityZ);
         m_particles.push_back(newParticle);
         newParticles.push_back(newParticle);
       }
