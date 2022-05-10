@@ -175,7 +175,7 @@ void MacGrid::simulate()
   bool mustSave = false;
 
   // Save original state
-  //futures.push_back(saveParticlesToFile(time, false));
+  futures.push_back(saveParticlesToFile(time, false));
 
   // Start simulation loop
   while (time < m_simulationTime) {
