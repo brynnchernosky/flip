@@ -22,7 +22,7 @@ const int BUFFER_LAYERS = 3;
 // Produces a random float in the range [0, 1]
 inline float getRandomFloat()
 {
-  return static_cast <float> (arc4random()) / static_cast <float> (UINT32_MAX);
+  return static_cast<float>(rand() / double(RAND_MAX));
 }
 
 // Gets a uniformly random position on a given triangle defined by a point and two vectors
@@ -408,7 +408,7 @@ void MacGrid::fillCellsFromInternalPosition(const Material material, const Vecto
 // Assuming that the outermost solid cells have layer = -2 and the rest have layer = -1, propagates normals inward into the solid
 void MacGrid::propagateSolidNormals()
 { 
-  vector<const Vector3i> iterCellIndices;
+  vector<Vector3i> iterCellIndices;
   iterCellIndices.reserve(m_cells.size());
 
   // Create a buffer zone inward, into the solid
@@ -565,7 +565,7 @@ void MacGrid::updateGridExcludingVelocity()
   setCellLayerBasedOnMaterial();
 
   // Save cells to iterate through
-  vector<const Vector3i> iterCellIndices;
+  vector<Vector3i> iterCellIndices;
   iterCellIndices.reserve(m_cells.size());
 
   // Create a buffer zone around the fluid
@@ -1152,7 +1152,7 @@ const Vector3f MacGrid::indicesToCenterPosition(const Vector3i &cellIndices) con
 // ========================================================================
 
 // Helper function for QtConcurrent to save files asynchronously
-extern void saveParticlesHelper(const string filepath, const vector<const Vector3f> particlePositions) {
+extern void saveParticlesHelper(const string filepath, const vector<Vector3f> particlePositions) {
   fstream fout;
   fout.open(filepath, ios::out);
 
@@ -1179,15 +1179,21 @@ QFuture<void> MacGrid::saveParticlesToFile(const float time, bool saveParticle) 
   const string timeString = to_string(time);
   string filepath = m_outputFolder + "/" + string(10 - timeString.size(), '0') + timeString + ".csv";
 
-  vector<const Vector3f> particlePositions;
+  vector<Vector3f> particlePositions;
   if (saveParticle) {
     for (Particle * const particle : m_particles) {
       filepath = m_outputFolder + "/foam/" + string(10 - timeString.size(), '0') + timeString + ".csv";
-      if(particle->foamParticle) particlePositions.push_back(particle->position);
+      if(particle->foamParticle) {
+          Vector3f position(particle->position);
+          particlePositions.push_back(position);
+      }
     }
   }
   else{
-    for (Particle * const particle : m_particles) particlePositions.push_back(particle->position);
+    for (Particle * const particle : m_particles) {
+        Vector3f position(particle->position);
+        particlePositions.push_back(position);
+    }
   }
 
   return QtConcurrent::run(saveParticlesHelper, filepath, particlePositions);
