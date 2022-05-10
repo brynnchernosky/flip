@@ -218,7 +218,8 @@ void MacGrid::simulate()
       time = nextSaveTime;
 
       // Save the particles to a file
-      futures.push_back(saveParticlesToFile(time));
+      futures.push_back(saveParticlesToFile(time, false));
+      futures.push_back(saveParticlesToFile(time, true));
       cout << "∟ started saving " << m_particles.size() << " particles (frame number " << saveNumber << ")" << endl;
 
       // Increase nextSaveTime
@@ -1171,14 +1172,22 @@ extern void saveParticlesHelper(const string filepath, const vector<const Vector
 }
 
 // Function to call to save particles to a file
-QFuture<void> MacGrid::saveParticlesToFile(const float time) const
+QFuture<void> MacGrid::saveParticlesToFile(const float time, bool saveParticle) const
 {
     // Todo: add something to indicate if a particle is a foam particle
   const string timeString = to_string(time);
   const string filepath = m_outputFolder + "/" + string(10 - timeString.size(), '0') + timeString + ".csv";
 
   vector<const Vector3f> particlePositions;
-  for (Particle * const particle : m_particles) particlePositions.push_back(particle->position);
+  if (saveParticle) {
+    for (Particle * const particle : m_particles) {
+      filepath = m_outputFolder +"/foam/" + string(10 - timeString.size(), '0') + timeString + ".csv";
+      if(particle->foamParticle) particlePositions.push_back(particle->position);
+    }
+  }
+  else{
+    for (Particle * const particle : m_particles) particlePositions.push_back(particle->position);
+  }
 
   return QtConcurrent::run(saveParticlesHelper, filepath, particlePositions);
 }
