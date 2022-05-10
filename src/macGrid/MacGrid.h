@@ -73,6 +73,7 @@ class MacGrid
     float m_maxCFLTime;               // the maximum timestep that calculateCFLTime() can return
     float m_simulationTime;           // total time for simulation
 
+    bool m_addFluid;
     Eigen::Vector3f m_fluidVelocity;
     Eigen::Vector3i m_fluidIndices;
     int m_fluidSize;
