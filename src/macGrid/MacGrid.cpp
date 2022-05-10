@@ -119,30 +119,30 @@ MacGrid::~MacGrid()
 
 void MacGrid::init()
 {
-   cout << "Starting initialization" << endl;
+//   cout << "Starting initialization" << endl;
 
-   // Solid
-   getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-   setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-   setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-   fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-   propagateSolidNormals();
+//   // Solid
+//   getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+//   setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+//   setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+//   fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+//   propagateSolidNormals();
 
-   unsigned int count = 0, count2 = 0;
-   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-     if (!withinBounds(kv->first)) continue;
-     if (kv->second->material == Material::Solid) {
-       ++count;
-       if (kv->second->layer == -2) ++count2;
-     }
-   }
-   cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
+//   unsigned int count = 0, count2 = 0;
+//   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+//     if (!withinBounds(kv->first)) continue;
+//     if (kv->second->material == Material::Solid) {
+//       ++count;
+//       if (kv->second->layer == -2) ++count2;
+//     }
+//   }
+//   cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
 
-   // Fluid
-   getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
-   setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
-   fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
-   spawnParticlesInFluidCells();
+//   // Fluid
+//   getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
+//   setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
+//   fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
+//   spawnParticlesInFluidCells();
 }
 
 // ================== Simulation
@@ -160,7 +160,7 @@ void MacGrid::simulate()
   bool mustSave = false;
 
   // Save original state
-  futures.push_back(saveParticlesToFile(time));
+  futures.push_back(saveParticlesToFile(time, false));
 
   // Start simulation loop
   while (time < m_simulationTime) {
@@ -209,7 +209,7 @@ void MacGrid::simulate()
       mustSave = false;
 
       // Add additional fluid to simulation at specified position and size
-      //addFluid(8, 8, 8, 3, time);
+      addFluid(8, 8, 8, 3, time);
 
       // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
       // addFoamParticles()
@@ -219,7 +219,7 @@ void MacGrid::simulate()
 
       // Save the particles to a file
       futures.push_back(saveParticlesToFile(time, false));
-      futures.push_back(saveParticlesToFile(time, true));
+      //futures.push_back(saveParticlesToFile(time, true));
       cout << "∟ started saving " << m_particles.size() << " particles (frame number " << saveNumber << ")" << endl;
 
       // Increase nextSaveTime
@@ -1177,12 +1177,12 @@ QFuture<void> MacGrid::saveParticlesToFile(const float time, bool saveParticle) 
 {
     // Todo: add something to indicate if a particle is a foam particle
   const string timeString = to_string(time);
-  const string filepath = m_outputFolder + "/" + string(10 - timeString.size(), '0') + timeString + ".csv";
+  string filepath = m_outputFolder + "/" + string(10 - timeString.size(), '0') + timeString + ".csv";
 
   vector<const Vector3f> particlePositions;
   if (saveParticle) {
     for (Particle * const particle : m_particles) {
-      filepath = m_outputFolder +"/foam/" + string(10 - timeString.size(), '0') + timeString + ".csv";
+      filepath = m_outputFolder + "/foam/" + string(10 - timeString.size(), '0') + timeString + ".csv";
       if(particle->foamParticle) particlePositions.push_back(particle->position);
     }
   }
@@ -1256,7 +1256,7 @@ void MacGrid::addFluid(int x, int y, int z, int sideLength, const float time)
       vector<Particle *> newParticles = addParticlesToCell(x+i, y+j, z);
 
       // Change particle positions to appear as if they were added at the correct time (could make
-      float timeSinceAdded = m_simulationTime - (m_fluidAddCounter * m_framePeriod);
+      float timeSinceAdded = time - (m_fluidAddCounter * m_framePeriod);
       // updateParticlePositions(timeSinceAdded, newParticles);
       for (unsigned int k = 0; k < newParticles.size(); ++k) {
         newParticles[k]->position += newParticles[k]->velocity * timeSinceAdded;
