@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 """
-./ffmpeg -f image2 framerate 2 -i CS/CS2240/flip/results/workingFolder/particle_images/%d.png out.gif
+./ffmpeg -f image2 -framerate 2 -i CS/CS2240/flip/results/workingFolder/particle_images/%d.png out.gif
 """
 
 def parseArguments():
@@ -74,7 +74,7 @@ def vis_folder(pcd_list, obb, image_filepath = None):
     num_frames = len(pcd_list)
 
     prev = time.time()
-    frame_time = 0.01
+    frame_time = 0.05
 
     while True:
         current = time.time()

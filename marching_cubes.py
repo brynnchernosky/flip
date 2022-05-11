@@ -21,9 +21,11 @@ def get_grid_dims(config_filepath):
     cellCountY = config.getint('Simulation', 'cellCountY')
     cellCountZ = config.getint('Simulation', 'cellCountZ')
 
-    return (cellCountX, cellCountY, cellCountZ)
+    cellWidth = config.getfloat('Simulation', 'cellWidth')
 
-def generate_mesh(input_sdf, dims):
+    return (cellCountX, cellCountY, cellCountZ), cellWidth
+
+def generate_mesh(input_sdf, dims, cellWidth):
     fin = open(input_sdf, "r")
 
     x_dim = int(dims[0])
@@ -43,6 +45,7 @@ def generate_mesh(input_sdf, dims):
     fin.close()
 
     vertices, triangles = mcubes.marching_cubes(u, 0)
+    vertices *= cellWidth
     mesh = o3d.geometry.TriangleMesh()
     mesh.vertices = o3d.utility.Vector3dVector(np.asarray(vertices))
     mesh.triangles = o3d.utility.Vector3iVector(np.asarray(triangles))
@@ -75,7 +78,7 @@ def vis_folder(mesh_list, obb):
 
 def main(args):
     config_filepath = os.path.join(args.folder, "config.ini")
-    grid_dims = get_grid_dims(config_filepath)
+    grid_dims, cellWidth = get_grid_dims(config_filepath)
     output_folder = os.path.join(args.folder, "meshes")
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
@@ -96,7 +99,7 @@ def main(args):
     meshes = []
     print("Reading SDFs and writing Meshes")
     for filename in filenames:
-        mesh = generate_mesh(filename, grid_dims)
+        mesh = generate_mesh(filename, grid_dims, cellWidth)
         meshes.append(mesh)
         name = Path(filename).stem
         output_filepath = os.path.join(output_folder, name) + ".obj"

@@ -32,20 +32,12 @@ def render_obj(input_filepath, output_filepath):
     bpy.context.view_layer.objects.active = target
     bpy.ops.object.delete()
 
-def clear_directory(folder):
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        os.unlink(file_path)
-
 def main():
     parent_folder = "/Users/adrianchang/desktop/CS/CS2240/flip/results/workingFolder"
     mesh_folder = os.path.join(parent_folder, "meshes")
     render_folder = os.path.join(parent_folder, "renders")
     if not os.path.exists(render_folder):
         os.mkdir(render_folder)
-    else:
-        print("Clearing", render_folder)
-        clear_directory(render_folder)
 
     print("Collecting filenames")
     filenames = []
@@ -61,9 +53,12 @@ def main():
         #Import relevant objs
         input_filepath = os.path.join(mesh_folder, filename)
         output_filepath = os.path.join(render_folder, Path(filename).stem + ".png")
-        print(input_filepath)
-        print(output_filepath)
-        render_obj(input_filepath, output_filepath)
+        if os.path.isfile(output_filepath):
+            print(output_filepath, "already exists, skipping render!")
+        else:
+            print(input_filepath)
+            print(output_filepath)
+            render_obj(input_filepath, output_filepath)
 
 if __name__ == "__main__":
     main()
