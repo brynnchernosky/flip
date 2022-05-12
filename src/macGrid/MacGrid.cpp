@@ -112,9 +112,7 @@ MacGrid::MacGrid(string folder)
   m_fluidSize = settings.value(QString("fluidSize")).toInt();
 
   m_foamParticleBoundary = settings.value(QString("foamParticleBoundary")).toFloat();
-
-
-
+  
   settings.endGroup();
 }
 
@@ -132,32 +130,35 @@ MacGrid::~MacGrid()
 
 void MacGrid::init()
 {
-    if (!m_addFluid) {
-        cout << "Starting initialization" << endl;
+  if (m_addFluid) {
+    cout << "Skipping initialization" << endl;
+    return;
+  }
 
-        // Solid
-        getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-        setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-        setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-        fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-        propagateSolidNormals();
+  cout << "Starting initialization" << endl;
 
-        unsigned int count = 0, count2 = 0;
-        for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-            if (!withinBounds(kv->first)) continue;
-            if (kv->second->material == Material::Solid) {
-                ++count;
-                if (kv->second->layer == -2) ++count2;
-            }
-        }
-        cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
+  // Solid
+  getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+  setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+  setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+  fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+  propagateSolidNormals();
 
-        // Fluid
-        getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
-        setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
-        fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
-        spawnParticlesInFluidCells();
-    }
+  unsigned int count = 0, count2 = 0;
+  for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+      if (!withinBounds(kv->first)) continue;
+      if (kv->second->material == Material::Solid) {
+          ++count;
+          if (kv->second->layer == -2) ++count2;
+      }
+  }
+  cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
+
+  // Fluid
+  getSurfaceParticlesFromMesh(m_fluidSurfaceParticles, m_fluidMeshFilepath, m_fluidTransformation);
+  setCellsBasedOnParticles(Material::Fluid, m_fluidSurfaceParticles, false);
+  fillCellsFromInternalPosition(Material::Fluid, m_fluidTransformation * m_fluidInternalPosition);
+  spawnParticlesInFluidCells();
 }
 
 // ================== Simulation
@@ -180,44 +181,44 @@ void MacGrid::simulate()
   // Start simulation loop
   while (time < m_simulationTime) {
 
-    //cout << "================== Starting loop " << loopNumber << " at time = " << time << endl;
+    // cout << "================== Starting loop " << loopNumber << " at time = " << time << endl;
 
     // Given particle velocities, calculate the timestep that can be taken while obeying the CFL condition
     float deltaTime = calculateCFLTime();
-    //cout << "∟ calculated timestep of " << deltaTime << endl;
+    // cout << "∟ calculated timestep of " << deltaTime << endl;
     if (deltaTime + time > nextSaveTime) {
       deltaTime = nextSaveTime - time + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__;
       mustSave = true;
-      //cout << "∟ set timestep to " << deltaTime << endl;
+      // cout << "∟ set timestep to " << deltaTime << endl;
     }
 
     // Given particle positions, update the dynamic grid
     updateGridExcludingVelocity();
-    //cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
+    // cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
 
     // Given particle velocities, update the velocity field (grid cell velocities)
     updateGridVelocity();
-    //cout << "∟ updated velocity field (from " << m_particles.size() << " particles)" << endl;
+    // cout << "∟ updated velocity field (from " << m_particles.size() << " particles)" << endl;
 
     // Given grid cells' velocities, save a copy of the velocity field for FLIP calculations
     saveCopyOfGridVelocity();
-    //cout << "∟ saved copy of velocity field" << endl;
+    // cout << "∟ saved copy of velocity field" << endl;
 
     // Given grid cells' velocities, apply external forces to the velocity field
     applyExternalForces(deltaTime);
-    //cout << "∟ applied external forces" << endl;
+    // cout << "∟ applied external forces" << endl;
 
     // Given grid cells' velocities, enforce the Neumann boundary condition to prevent flow from air/fluid cells into solid cells
     enforceBoundaryConditions();
-    //cout << "∟ enforced boundary conditions" << endl;
+    // cout << "∟ enforced boundary conditions" << endl;
 
     // Given grid cells' velocities, solve for pressure and remove divergence from the velocity field
     updateGridVelocityByRemovingDivergence();
-    //cout << "∟ updated velocity field by removing divergence" << endl;
+    // cout << "∟ updated velocity field by removing divergence" << endl;
 
     // Given grid cells' velocities (old and new), particle positions, and particle velocities, update particle positions with RK2
     updateParticlePositions(deltaTime, m_particles);
-    //cout << "∟ updated particle positions" << endl;
+    // cout << "∟ updated particle positions" << endl;
 
     // Increment time
     if (mustSave) {
