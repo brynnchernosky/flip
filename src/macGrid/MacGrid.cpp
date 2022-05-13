@@ -237,10 +237,6 @@ void MacGrid::simulate()
       // // Add additional fluid to simulation at specified position and size
       // if (m_addFluid) {
       //     addFluid(m_fluidIndices[0], m_fluidIndices[1], m_fluidIndices[2], m_fluidSize);
-      //     addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
-      //     addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
-      //     addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
-      //     addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
       // }
       // if (saveNumber == 8*10) {
       //     convertToFluid(0,49,0,49,0,49);
