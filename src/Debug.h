@@ -43,8 +43,10 @@ namespace Debug {
            + materialToString(c->material)
            + ", layer "
            + std::to_string(c->layer)
-           + ", and velocity "
-           + vectorToString(Eigen::Vector3f(c->u[0], c->u[1], c->u[2]));
+           + ", velocity "
+           + vectorToString(c->u)
+           + ", and normal "
+           + vectorToString(c->normal);
   }
 
 

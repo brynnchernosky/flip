@@ -76,7 +76,9 @@ MacGrid::MacGrid(string folder)
                             Translation3f(settings.value(QString("solidTranslationX")).toFloat(),
                                           settings.value(QString("solidTranslationY")).toFloat(),
                                           settings.value(QString("solidTranslationZ")).toFloat()) *
-                            Scaling      (settings.value(QString("solidScale")).toFloat()) *
+                            Scaling      (settings.value(QString("solidScaleX")).toFloat(),
+                                          settings.value(QString("solidScaleY")).toFloat(),
+                                          settings.value(QString("solidScaleZ")).toFloat()) *
                             AngleAxis<float>(settings.value(QString("solidRotationX")).toFloat() / 180.0f * M_PI, Vector3f::UnitX()) *
                             AngleAxis<float>(settings.value(QString("solidRotationY")).toFloat() / 180.0f * M_PI, Vector3f::UnitY()) *
                             AngleAxis<float>(settings.value(QString("solidRotationZ")).toFloat() / 180.0f * M_PI, Vector3f::UnitZ()));
@@ -84,7 +86,9 @@ MacGrid::MacGrid(string folder)
                             Translation3f(settings.value(QString("fluidTranslationX")).toFloat(),
                                           settings.value(QString("fluidTranslationY")).toFloat(),
                                           settings.value(QString("fluidTranslationZ")).toFloat()) *
-                            Scaling      (settings.value(QString("fluidScale")).toFloat()) *
+                            Scaling      (settings.value(QString("fluidScaleX")).toFloat(),
+                                          settings.value(QString("fluidScaleY")).toFloat(),
+                                          settings.value(QString("fluidScaleZ")).toFloat()) *
                             AngleAxis<float>(settings.value(QString("fluidRotationX")).toFloat() / 180.0f * M_PI, Vector3f::UnitX()) *
                             AngleAxis<float>(settings.value(QString("fluidRotationY")).toFloat() / 180.0f * M_PI, Vector3f::UnitY()) *
                             AngleAxis<float>(settings.value(QString("fluidRotationZ")).toFloat() / 180.0f * M_PI, Vector3f::UnitZ()));
@@ -137,20 +141,21 @@ void MacGrid::init()
 
   cout << "Starting initialization" << endl;
 
-  // Solid
-  getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-  setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-  setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-  fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-  propagateSolidNormals();
+  // // Solid
+  // getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+  // setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+  // setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+  // fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+  // propagateSolidNormals();
 
   unsigned int count = 0, count2 = 0;
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
-      if (!withinBounds(kv->first)) continue;
-      if (kv->second->material == Material::Solid) {
-          ++count;
-          if (kv->second->layer == -2) ++count2;
-      }
+    if (!withinBounds(kv->first)) continue;
+    // cout << Debug::cellToString(kv->second) << endl;
+    if (kv->second->material == Material::Solid) {
+      ++count;
+      if (kv->second->layer == -2) ++count2;
+    }
   }
   cout << count << " solid cells, of which " << count2 << " have layer = -2" << endl;
 
@@ -369,6 +374,8 @@ void MacGrid::fillCellsFromInternalPosition(const Material material, const Vecto
   unsigned int count = 0;
 
   const Vector3i internalIndices = positionToIndices(internalPosition);
+  cout << "Filling cells from internal position: " << Debug::vectorToString(internalPosition)
+      << ", at " << Debug::vectorToString(internalIndices) << endl;
   assert(withinBounds(internalIndices));
 
   // Check that it a cell doesn't already exist here; if it does, it must be of the specified material
@@ -441,7 +448,7 @@ void MacGrid::propagateSolidNormals()
       }
     }
 
-    // Iterate through those saved cells; these are the ones with well-defined normals
+    // Iterate through those saved cells; these are the ones of the appropriate layer
     for (const Vector3i &cellIndices : iterCellIndices) {
 
       Cell * cell = m_cells[cellIndices];
@@ -457,6 +464,9 @@ void MacGrid::propagateSolidNormals()
 
         // If the neighbor cell does exist
         Cell * neighbor = neighborKV->second;
+
+        // Skip if the neighbor cell is of the same layer
+        if (neighbor->layer == bufferLayerAdd1) continue;
 
         // If the neighbor's layer hasn't been set yet
         if (neighbor->layer == -1) {
@@ -995,7 +1005,7 @@ void MacGrid::resolveParticleCollisions(const std::vector<Particle *> &particles
 
         if (attemptA > 20) {
           cout << attemptA << ": repeated failure to project particle back into bounds!" << endl;
-          cout << Debug::particleToString(particle) << endl;
+          cout << "Particle: " << Debug::particleToString(particle) << endl;
           cout << Debug::vectorToString(currIndices) << endl;
           if (attemptA > 40) assert(false);
         }
@@ -1013,7 +1023,8 @@ void MacGrid::resolveParticleCollisions(const std::vector<Particle *> &particles
 
         if (attemptB > 20) {
           cout << attemptB << ": repeated failure to project particle out of solid!" << endl;
-          cout << Debug::cellToString(kv->second) << " Normal = " << Debug::vectorToString(kv->second->normal) << endl;
+          cout << "Particle: " << Debug::particleToString(particle) << endl;
+          cout << Debug::cellToString(kv->second) << endl;
           if (attemptB > 40) assert(false);
         }
 
