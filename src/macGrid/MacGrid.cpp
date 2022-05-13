@@ -232,7 +232,7 @@ void MacGrid::simulate()
           addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
       }
       if (saveNumber == 8*10) {
-          convertToFluid(0,49,0,49,0,49);
+          convertToFluid(0,m_cellCount[0],0,m_cellCount[1],0,m_cellCount[2]);
       }
 
 
