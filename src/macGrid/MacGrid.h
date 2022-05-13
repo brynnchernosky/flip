@@ -135,9 +135,10 @@ class MacGrid
 
     // ================== Extension Helpers
 
-    std::vector<Particle *> addParticlesToCell(int x, int y, int z);
+    std::vector<Particle *> addParticlesToCell(int x, int y, int z, Eigen::Vector3f velocity);
     void addFluid(int x, int y, int z, int sideLength);
     void removeFluid(int x, int y, int z, int sideLength);
+    void convertToFluid(int xLow, int xHigh, int yLow, int yHigh, int zLow, int zHigh);
     void addFoamParticles();
 };
 
