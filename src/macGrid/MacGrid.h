@@ -139,7 +139,7 @@ class MacGrid
     void addFluid(int x, int y, int z, int sideLength);
     void removeFluid(int x, int y, int z, int sideLength);
     void convertToFluid(int xLow, int xHigh, int yLow, int yHigh, int zLow, int zHigh);
-    void addFoamParticles();
+    void assignFoamParticles();
 };
 
 #endif // MACGRID_H

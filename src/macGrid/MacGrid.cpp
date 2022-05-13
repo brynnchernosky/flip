@@ -141,12 +141,12 @@ void MacGrid::init()
 
   cout << "Starting initialization" << endl;
 
-  // // Solid
-  // getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-  // setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-  // setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-  // fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-  // propagateSolidNormals();
+  // Solid
+  getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+  setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+  setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+  fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+  propagateSolidNormals();
 
   unsigned int count = 0, count2 = 0;
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
@@ -180,77 +180,81 @@ void MacGrid::simulate()
   int saveNumber = 0, loopNumber = 0;
   bool mustSave = false;
 
+  // Given particle positions, update the dynamic grid
+  updateGridExcludingVelocity();
+  cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
+
   // Save original state
   futures.push_back(saveParticlesToFile(time, false));
+  futures.push_back(saveParticlesToFile(time, true));
 
   // Start simulation loop
   while (time < m_simulationTime) {
 
-    // cout << "================== Starting loop " << loopNumber << " at time = " << time << endl;
+    cout << "================== Starting loop " << loopNumber << " at time = " << time << endl;
 
     // Given particle velocities, calculate the timestep that can be taken while obeying the CFL condition
     float deltaTime = calculateCFLTime();
-    // cout << "∟ calculated timestep of " << deltaTime << endl;
+    cout << "∟ calculated timestep of " << deltaTime << endl;
     if (deltaTime + time > nextSaveTime) {
       deltaTime = nextSaveTime - time + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__ + __FLT_EPSILON__;
       mustSave = true;
-      // cout << "∟ set timestep to " << deltaTime << endl;
+      cout << "∟ set timestep to " << deltaTime << endl;
     }
-
-    // Given particle positions, update the dynamic grid
-    updateGridExcludingVelocity();
-    // cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
 
     // Given particle velocities, update the velocity field (grid cell velocities)
     updateGridVelocity();
-    // cout << "∟ updated velocity field (from " << m_particles.size() << " particles)" << endl;
+    cout << "∟ updated velocity field (from " << m_particles.size() << " particles)" << endl;
 
     // Given grid cells' velocities, save a copy of the velocity field for FLIP calculations
     saveCopyOfGridVelocity();
-    // cout << "∟ saved copy of velocity field" << endl;
+    cout << "∟ saved copy of velocity field" << endl;
 
     // Given grid cells' velocities, apply external forces to the velocity field
     applyExternalForces(deltaTime);
-    // cout << "∟ applied external forces" << endl;
+    cout << "∟ applied external forces" << endl;
 
     // Given grid cells' velocities, enforce the Neumann boundary condition to prevent flow from air/fluid cells into solid cells
     enforceBoundaryConditions();
-    // cout << "∟ enforced boundary conditions" << endl;
+    cout << "∟ enforced boundary conditions" << endl;
 
     // Given grid cells' velocities, solve for pressure and remove divergence from the velocity field
     updateGridVelocityByRemovingDivergence();
-    // cout << "∟ updated velocity field by removing divergence" << endl;
+    cout << "∟ updated velocity field by removing divergence" << endl;
 
     // Given grid cells' velocities (old and new), particle positions, and particle velocities, update particle positions with RK2
     updateParticlePositions(deltaTime, m_particles);
-    // cout << "∟ updated particle positions" << endl;
+    cout << "∟ updated particle positions" << endl;
+
+    // Given particle positions, update the dynamic grid
+    updateGridExcludingVelocity();
+    cout << "∟ updated grid (" << m_cells.size() << " cells)" << endl;
 
     // Increment time
     if (mustSave) {
       mustSave = false;
 
-      // Add additional fluid to simulation at specified position and size
-      if (m_addFluid) {
-          addFluid(m_fluidIndices[0], m_fluidIndices[1], m_fluidIndices[2], m_fluidSize);
-          addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
-          addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
-          addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
-          addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
-      }
-      if (saveNumber == 8*10) {
-          convertToFluid(0,49,0,49,0,49);
-      }
+      // // Add additional fluid to simulation at specified position and size
+      // if (m_addFluid) {
+      //     addFluid(m_fluidIndices[0], m_fluidIndices[1], m_fluidIndices[2], m_fluidSize);
+      //     addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
+      //     addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
+      //     addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
+      //     addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
+      // }
+      // if (saveNumber == 8*10) {
+      //     convertToFluid(0,49,0,49,0,49);
+      // }
 
-
-      // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
-      // addFoamParticles()
+      // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
+      assignFoamParticles();
 
       // Set time to current nextSaveTime
       time = nextSaveTime;
 
       // Save the particles to a file
       futures.push_back(saveParticlesToFile(time, false));
-      //futures.push_back(saveParticlesToFile(time, true));
+      futures.push_back(saveParticlesToFile(time, true));
       cout << "∟ started saving " << m_particles.size() << " particles (frame number " << saveNumber << ")" << endl;
 
       // Increase nextSaveTime
@@ -1211,23 +1215,23 @@ extern void saveParticlesHelper(const string filepath, const vector<const Vector
 }
 
 // Function to call to save particles to a file
-QFuture<void> MacGrid::saveParticlesToFile(const float time, bool saveParticle) const
+QFuture<void> MacGrid::saveParticlesToFile(const float time, bool saveOnlyFoamParticles) const
 {
-    // Todo: add something to indicate if a particle is a foam particle
+  // Todo: add something to indicate if a particle is a foam particle
   const string timeString = to_string(time);
   string filepath = m_outputFolder + "/" + string(10 - timeString.size(), '0') + timeString + ".csv";
 
   vector<const Vector3f> particlePositions;
-  if (saveParticle) {
+  if (saveOnlyFoamParticles) {
     for (Particle * const particle : m_particles) {
       filepath = m_outputFolder + "/foam/" + string(10 - timeString.size(), '0') + timeString + ".csv";
-      if(particle->foamParticle) particlePositions.push_back(particle->position);
+      if (particle->foamParticle) particlePositions.push_back(particle->position);
     }
-  }
-  else{
+  } else {
+    particlePositions.reserve(m_particles.size());
     for (Particle * const particle : m_particles) particlePositions.push_back(particle->position);
   }
-
+  
   return QtConcurrent::run(saveParticlesHelper, filepath, particlePositions);
 }
 
@@ -1311,7 +1315,7 @@ void MacGrid::convertToFluid(int xLow, int xHigh, int yLow, int yHigh, int zLow,
 }
 
 // Can be called in simulate to set foamParticle = true for particles in voxels where curl is above m_foamParticleBoundary
-void MacGrid::addFoamParticles()
+void MacGrid::assignFoamParticles()
 {
 #pragma omp parallel for
   for (unsigned int i = 0; i < m_particles.size(); ++i) {
@@ -1320,8 +1324,13 @@ void MacGrid::addFoamParticles()
 
 #pragma omp parallel for
   for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
+
     const Vector3i &cellIndices = kv->first;
     Cell * cell = kv->second;
+
+    // Skip non-fluid cells
+    if (cell->material != Material::Fluid) continue; 
+
     // Curl calculation uses equation 28 from "Fluid Flow for the Rest of Us"
     Vector3f curl(0,0,0);
     curl[0] += cell->u[2] - m_cells[cellIndices + Vector3i(0,-1,0)]->u[2];
@@ -1330,9 +1339,10 @@ void MacGrid::addFoamParticles()
     curl[1] -= cell->u[2] - m_cells[cellIndices + Vector3i(-1,0,0)]->u[2];
     curl[2] += cell->u[1] - m_cells[cellIndices + Vector3i(-1,0,0)]->u[1];
     curl[2] -= cell->u[0] - m_cells[cellIndices + Vector3i(0,-1,0)]->u[0];
+
     if (curl.norm() > m_foamParticleBoundary) {
-      for (unsigned int i = 0; i < cell->particles.size(); ++i) {
-        cell->particles[i]->foamParticle = true;
+      for (Particle * particle : cell->particles) {
+        particle->foamParticle = true;
       }
     }
   }

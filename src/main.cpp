@@ -89,13 +89,8 @@ int main(int argc, char *argv[])
     }
 
     MacGrid grid(folder);
-
-    // ================== TO DELETE
-
     grid.init();
     grid.simulate();
-
-    // ================== END TO DELETE
 
   } else if (method == "particle-to-mesh") {
 
@@ -116,8 +111,9 @@ int main(int argc, char *argv[])
     converter.surface_reconstruction(particleFilepath, sdfFilepath);
 
   } else if (method == "test") {
-//      Testing::testMeshParticleMesh(folder);
+
       clearDirectory(folder);
+
   } else {
 
     cout << "Error: unknown method!" << endl;
