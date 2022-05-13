@@ -186,7 +186,7 @@ void MacGrid::simulate()
 
   // Save original state
   futures.push_back(saveParticlesToFile(time, false));
-  futures.push_back(saveParticlesToFile(time, true));
+  // futures.push_back(saveParticlesToFile(time, true));
 
   // Start simulation loop
   while (time < m_simulationTime) {
@@ -246,15 +246,15 @@ void MacGrid::simulate()
       //     convertToFluid(0,49,0,49,0,49);
       // }
 
-      // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
-      assignFoamParticles();
+      // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
+      // assignFoamParticles();
 
       // Set time to current nextSaveTime
       time = nextSaveTime;
 
       // Save the particles to a file
       futures.push_back(saveParticlesToFile(time, false));
-      futures.push_back(saveParticlesToFile(time, true));
+      // futures.push_back(saveParticlesToFile(time, true));
       cout << "∟ started saving " << m_particles.size() << " particles (frame number " << saveNumber << ")" << endl;
 
       // Increase nextSaveTime
@@ -384,7 +384,6 @@ struct Vector3iComparator
 void MacGrid::fillCellsFromInternalPosition(const Material material, const Vector3f &internalPosition)
 {
   unsigned int count = 0;
-  cout << "internal position " << internalPosition << endl;
 
   const Vector3i internalIndices = positionToIndices(internalPosition);
   cout << "Filling cells from internal position: " << Debug::vectorToString(internalPosition)
