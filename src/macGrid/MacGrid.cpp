@@ -136,11 +136,11 @@ void MacGrid::init()
         cout << "Starting initialization" << endl;
 
         // Solid
-        getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
-        setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
-        setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
-        fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
-        propagateSolidNormals();
+       getSurfaceParticlesFromMesh(m_solidSurfaceParticles, m_solidMeshFilepath, m_solidTransformation);
+       setCellsBasedOnParticles(Material::Solid, m_solidSurfaceParticles, false);
+       setCellLayerBasedOnMaterial(); // By doing this first, only these solid cells will have layer = -2
+       fillCellsFromInternalPosition(Material::Solid, m_solidTransformation * m_solidInternalPosition);
+       propagateSolidNormals();
 
         unsigned int count = 0, count2 = 0;
         for (auto kv = m_cells.begin(); kv != m_cells.end(); ++kv) {
@@ -226,7 +226,15 @@ void MacGrid::simulate()
       // Add additional fluid to simulation at specified position and size
       if (m_addFluid) {
           addFluid(m_fluidIndices[0], m_fluidIndices[1], m_fluidIndices[2], m_fluidSize);
+          addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
+          addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]+10, m_fluidIndices[2], m_fluidSize-2);
+          addFluid(m_fluidIndices[0]+10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
+          addFluid(m_fluidIndices[0]-10, m_fluidIndices[1]-10, m_fluidIndices[2], m_fluidSize-2);
       }
+      if (saveNumber == 8*10) {
+          convertToFluid(0,49,0,49,0,49);
+      }
+
 
       // // Set fluid particles to foam particles in voxels where curl is above m_foamParticleBoundary, only relevant for visualization
       // addFoamParticles()
@@ -366,6 +374,7 @@ struct Vector3iComparator
 void MacGrid::fillCellsFromInternalPosition(const Material material, const Vector3f &internalPosition)
 {
   unsigned int count = 0;
+  cout << "internal position " << internalPosition << endl;
 
   const Vector3i internalIndices = positionToIndices(internalPosition);
   assert(withinBounds(internalIndices));
@@ -1223,7 +1232,7 @@ bool MacGrid::withinBounds(const Vector3i &cellIndices) const
 // ========================================================================
 
 // Used for adding fluid: given cell indices, add particles to that cell with given velocity
-vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
+vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z, Vector3f velocity)
 {
   // m_strata is the number of subdivisions per side, such that there are strata^3 subcells per cell
   const float strataWidth = m_cellWidth / m_strata;
@@ -1241,7 +1250,7 @@ vector<Particle *> MacGrid::addParticlesToCell(int x, int y, int z)
           const float a = getRandomFloat(), b = getRandomFloat(), c = getRandomFloat();
           newParticle->position = indicesToBasePosition(cellIndices) + Vector3f(x + a, y + b, z + c) * strataWidth;
         } while (positionToIndices(newParticle->position) != cellIndices);
-        newParticle->velocity = m_fluidVelocity;
+        newParticle->velocity = velocity;
         m_particles.push_back(newParticle);
         newParticles.push_back(newParticle);
       }
@@ -1270,9 +1279,23 @@ void MacGrid::addFluid(int x, int y, int z, int sideLength)
       }
 
       // Add fluid particles to cell
-      vector<Particle *> newParticles = addParticlesToCell(x+i, y+j, z);
+      addParticlesToCell(x+i, y+j, z, m_fluidVelocity);
     }
   }
+}
+
+// Convert all solids within bounds to fluid
+void MacGrid::convertToFluid(int xLow, int xHigh, int yLow, int yHigh, int zLow, int zHigh) {
+    for (int x = xLow; x < xHigh; x++) {
+        for (int y = yLow; y < yHigh; y++) {
+            for (int z = zLow; z < zHigh; z++) {
+                if (m_cells.find(Vector3i(x,y,z)) == m_cells.end()) continue;
+                if (m_cells[Vector3i(x,y,z)]->material != Material::Solid) continue;
+                m_cells[Vector3i(x,y,z)]->material = Material::Fluid;
+                addParticlesToCell(x,y,z,Vector3f(0,0,0));
+            }
+        }
+    }
 }
 
 // Can be called in simulate to set foamParticle = true for particles in voxels where curl is above m_foamParticleBoundary
