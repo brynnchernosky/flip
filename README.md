@@ -18,8 +18,11 @@
     - Velocity field into and out of solids is set to 0
     - Divergence is removed from the velocity field
     - Particle positions are updated based on velocity field
-    - Particle positions are output 
-- Marching cubes is used to produce a trimesh, which is then rendered
+    - Particle positions are output at regular intervals
+- Within the reconstruction pipeline:
+    - Particle positions are converted to signed distance fields
+    - Marching cubes is used to produce a trimesh
+    - The trimeshes are renedered in Blender 
 
 ## Extensions
 - Adding additional fluid to simulation by adding fluid source or turning solids into fluids
